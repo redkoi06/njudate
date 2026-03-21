@@ -1,6 +1,6 @@
 import { PublicShell } from "@/components/site-shell";
 import { SectionHeader, SurfaceCard } from "@/components/site-ui";
-import { getSessionUser } from "@/lib/auth/session";
+import { getOptionalSessionUser } from "@/lib/auth/session";
 
 const PRIVACY_POINTS = [
   "注册邮箱仅用于校内身份验证，不作为公开资料展示。",
@@ -11,7 +11,7 @@ const PRIVACY_POINTS = [
 ];
 
 export default async function PrivacyPage() {
-  const user = await getSessionUser();
+  const user = await getOptionalSessionUser();
 
   return (
     <PublicShell signedIn={Boolean(user)}>

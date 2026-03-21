@@ -12,13 +12,17 @@ function getBearerToken(request: NextRequest) {
   return authorization.slice("Bearer ".length).trim();
 }
 
-export async function POST(request: NextRequest) {
+function getConfiguredBatchRunnerSecrets() {
   const env = getServerEnv();
-  const expectedSecret = env.BATCH_RUNNER_SECRET;
+  return env.CRON_SECRET ? [env.CRON_SECRET] : [];
+}
 
-  if (!expectedSecret) {
+async function handleBatchRunnerRequest(request: NextRequest) {
+  const expectedSecrets = getConfiguredBatchRunnerSecrets();
+
+  if (expectedSecrets.length === 0) {
     return NextResponse.json(
-      { error: "BATCH_RUNNER_SECRET is not configured." },
+      { error: "CRON_SECRET is not configured." },
       { status: 500 },
     );
   }
@@ -26,10 +30,18 @@ export async function POST(request: NextRequest) {
   const providedSecret =
     request.headers.get("x-batch-runner-secret") ?? getBearerToken(request);
 
-  if (providedSecret !== expectedSecret) {
+  if (!providedSecret || !expectedSecrets.includes(providedSecret)) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 
   const summary = await runBatchLifecycle();
   return NextResponse.json(summary);
+}
+
+export async function GET(request: NextRequest) {
+  return handleBatchRunnerRequest(request);
+}
+
+export async function POST(request: NextRequest) {
+  return handleBatchRunnerRequest(request);
 }

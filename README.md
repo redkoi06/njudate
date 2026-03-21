@@ -42,7 +42,6 @@ npm run dev
 
 ## 环境变量
 
-- `NEXT_PUBLIC_SITE_URL`: 站点地址
 - `NEXT_PUBLIC_SUPABASE_URL`: Supabase 项目 URL
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`: Supabase 前端公钥
 - `SUPABASE_SERVICE_ROLE_KEY`: Supabase service role key
@@ -53,7 +52,7 @@ npm run dev
 - `SMTP_PASSWORD`: 业务邮件 SMTP 密码
 - `SMTP_FROM_EMAIL`: 业务邮件发件地址
 - `SMTP_FROM_NAME`: 业务邮件发件人名称，可选
-- `BATCH_RUNNER_SECRET`: 调用批次生命周期接口时使用的密钥
+- `CRON_SECRET`: Vercel Cron Jobs 自动附带到 `Authorization: Bearer ...` 的密钥
 
 ## 常用命令
 

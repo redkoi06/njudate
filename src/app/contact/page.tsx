@@ -1,7 +1,7 @@
 import { PublicShell } from "@/components/site-shell";
 import { Badge, Button, Field, SectionHeader, SurfaceCard, TextArea } from "@/components/site-ui";
 import { createContactRequestAction } from "@/features/app/actions";
-import { getSessionUser } from "@/lib/auth/session";
+import { getOptionalSessionUser } from "@/lib/auth/session";
 
 export default async function ContactPage({
   searchParams,
@@ -9,7 +9,7 @@ export default async function ContactPage({
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const [user, resolvedSearchParams] = await Promise.all([
-    getSessionUser(),
+    getOptionalSessionUser(),
     searchParams,
   ]);
   const submitted = resolvedSearchParams?.submitted === "1";

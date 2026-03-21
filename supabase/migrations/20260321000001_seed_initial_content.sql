@@ -1,8 +1,8 @@
 insert into public.app_configs (config_key, value_json, description)
 values
-  ('registration_open', 'true'::jsonb, 'Whether new users can request OTP sign-in.'),
+  ('registration_open', 'true'::jsonb, 'Whether new users can register with email confirmation.'),
   ('weekly_participation_open', 'true'::jsonb, 'Whether users can join the current batch.'),
-  ('allowed_email_domains', '["smail.nju.edu.cn"]'::jsonb, 'Approved school email domains.'),
+  ('allowed_email_domains', '["smail.nju.edu.cn", "qq.com"]'::jsonb, 'Approved email domains.'),
   ('auth_mode', '"otp"'::jsonb, 'Authentication mode used by the app.'),
   ('match_schedule_text', '"每周二 20:30 统一公布结果。"'::jsonb, 'Public-facing match schedule description.'),
   ('contact_flow_text', '"点击联系后，平台会向双方开放昵称与校内邮箱，并同步发送提醒。"'::jsonb, 'Public-facing contact flow description.'),

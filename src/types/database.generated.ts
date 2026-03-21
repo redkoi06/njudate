@@ -420,6 +420,10 @@ export interface Database {
         };
         Returns: UUID;
       };
+      provision_current_app_user: {
+        Args: Record<string, never>;
+        Returns: UUID;
+      };
       save_questionnaire_draft: {
         Args: {
           p_answers_json?: Json;

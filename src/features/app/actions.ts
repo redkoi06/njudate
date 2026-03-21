@@ -5,24 +5,15 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { getQuestionnaireState } from "@/features/app/data";
+import {
+  getAuthErrorMessage,
+  signInSchema,
+  signUpSchema,
+} from "@/lib/auth/credentials";
 import { sendTransactionalEmail } from "@/lib/email/send";
-import { SCHOOL_EMAIL_DOMAIN } from "@/lib/site";
+import { getPublicEnv } from "@/lib/env/client";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-
-const emailSchema = z
-  .string()
-  .trim()
-  .email("请输入有效邮箱")
-  .refine(
-    (value) => value.toLowerCase().endsWith(`@${SCHOOL_EMAIL_DOMAIN}`),
-    `当前仅支持 ${SCHOOL_EMAIL_DOMAIN} 邮箱`,
-  );
-
-const otpSchema = z.object({
-  email: emailSchema,
-  token: z.string().trim().length(6, "请输入 6 位验证码"),
-});
 
 const profileSchema = z.object({
   nickname: z.string().trim().min(1, "请填写昵称"),
@@ -31,7 +22,7 @@ const profileSchema = z.object({
   grade: z.string().trim().min(1, "请填写年级"),
   gender: z.string().trim().min(1, "请填写性别"),
   targetPreference: z.string().trim().min(1, "请填写匹配期待"),
-  bio: z.string().trim().max(300).optional(),
+  bio: z.string().trim().max(300, "自我介绍不能超过 300 字").optional(),
   interests: z.string().trim().optional(),
   showNickname: z.boolean(),
 });
@@ -50,6 +41,25 @@ const contactSchema = z.object({
 });
 
 const accountRequestTypeSchema = z.enum(["export_data", "delete_account"]);
+
+function redirectWithSearchParams(
+  pathname: string,
+  params: Record<string, boolean | string | null | undefined>,
+): never {
+  const searchParams = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === null || value === false) {
+      continue;
+    }
+
+    searchParams.set(key, value === true ? "1" : value);
+  }
+
+  redirect(
+    searchParams.size > 0 ? `${pathname}?${searchParams.toString()}` : pathname,
+  );
+}
 
 function stringField(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -111,6 +121,7 @@ async function parseQuestionnaireAnswers(formData: FormData, userId: string) {
         if (!Number.isNaN(numeric)) {
           answers[question.questionCode] = numeric;
         }
+
         continue;
       }
 
@@ -177,6 +188,7 @@ function parseContactPayload(payload: unknown, currentUserId: string) {
   const record = payload as Record<string, unknown>;
   const left = record.left_user;
   const right = record.right_user;
+
   if (
     !left ||
     typeof left !== "object" ||
@@ -224,39 +236,72 @@ function parseContactPayload(payload: unknown, currentUserId: string) {
   };
 }
 
-export async function requestOtpAction(formData: FormData) {
-  const email = emailSchema.parse(stringField(formData, "email").toLowerCase());
-  const supabase = await createServerSupabaseClient();
+export async function registerUserAction(formData: FormData) {
+  const rawEmail = stringField(formData, "email").trim().toLowerCase();
+  const payload = signUpSchema.safeParse({
+    email: rawEmail,
+    password: stringField(formData, "password"),
+    confirmPassword: stringField(formData, "confirmPassword"),
+  });
 
-  const { error } = await supabase.auth.signInWithOtp({
-    email,
+  if (!payload.success) {
+    return redirectWithSearchParams("/register", {
+      email: rawEmail,
+      error: getAuthErrorMessage(payload.error, "请检查注册信息。"),
+    });
+  }
+
+  const env = getPublicEnv();
+  const supabase = await createServerSupabaseClient();
+  const { error } = await supabase.auth.signUp({
+    email: payload.data.email,
+    password: payload.data.password,
     options: {
-      shouldCreateUser: true,
+      emailRedirectTo: new URL(
+        "/auth/confirm",
+        env.NEXT_PUBLIC_SITE_URL,
+      ).toString(),
     },
   });
 
   if (error) {
-    throw error;
+    return redirectWithSearchParams("/register", {
+      email: payload.data.email,
+      error: getAuthErrorMessage(error, "注册失败，请稍后再试。"),
+    });
   }
 
-  redirect(`/login?sent=1&email=${encodeURIComponent(email)}`);
+  redirectWithSearchParams("/register", {
+    email: payload.data.email,
+    sent: true,
+  });
 }
 
-export async function verifyOtpAction(formData: FormData) {
-  const payload = otpSchema.parse({
-    email: stringField(formData, "email").toLowerCase(),
-    token: stringField(formData, "token"),
+export async function signInWithPasswordAction(formData: FormData) {
+  const rawEmail = stringField(formData, "email").trim().toLowerCase();
+  const payload = signInSchema.safeParse({
+    email: rawEmail,
+    password: stringField(formData, "password"),
   });
 
+  if (!payload.success) {
+    return redirectWithSearchParams("/login", {
+      email: rawEmail,
+      error: getAuthErrorMessage(payload.error, "请检查登录信息。"),
+    });
+  }
+
   const supabase = await createServerSupabaseClient();
-  const { error } = await supabase.auth.verifyOtp({
-    email: payload.email,
-    token: payload.token,
-    type: "email",
+  const { error } = await supabase.auth.signInWithPassword({
+    email: payload.data.email,
+    password: payload.data.password,
   });
 
   if (error) {
-    throw error;
+    return redirectWithSearchParams("/login", {
+      email: payload.data.email,
+      error: getAuthErrorMessage(error, "登录失败，请稍后再试。"),
+    });
   }
 
   redirect("/app/dashboard");

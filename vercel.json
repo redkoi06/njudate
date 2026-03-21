@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/internal/batch-runner",
+      "schedule": "*/5 * * * *"
+    }
+  ]
+}

@@ -10,6 +10,7 @@ export function getServerEnv(): ServerEnv {
   }
 
   cachedServerEnv = serverEnvSchema.parse({
+    NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
     NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:
       process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
@@ -21,7 +22,7 @@ export function getServerEnv(): ServerEnv {
     SMTP_PASSWORD: process.env.SMTP_PASSWORD,
     SMTP_FROM_EMAIL: process.env.SMTP_FROM_EMAIL,
     SMTP_FROM_NAME: process.env.SMTP_FROM_NAME,
-    BATCH_RUNNER_SECRET: process.env.BATCH_RUNNER_SECRET,
+    CRON_SECRET: process.env.CRON_SECRET,
   });
 
   return cachedServerEnv;

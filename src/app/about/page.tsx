@@ -1,6 +1,6 @@
 import { PublicShell } from "@/components/site-shell";
 import { SectionHeader, SurfaceCard } from "@/components/site-ui";
-import { getSessionUser } from "@/lib/auth/session";
+import { getOptionalSessionUser } from "@/lib/auth/session";
 
 const PLATFORM_PRINCIPLES = [
   {
@@ -21,7 +21,7 @@ const PLATFORM_PRINCIPLES = [
 ];
 
 export default async function AboutPage() {
-  const user = await getSessionUser();
+  const user = await getOptionalSessionUser();
 
   return (
     <PublicShell signedIn={Boolean(user)}>
