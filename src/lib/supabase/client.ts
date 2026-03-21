@@ -1,12 +1,12 @@
 "use client";
 
 import { createBrowserClient } from "@supabase/ssr";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { getPublicEnv } from "@/lib/env/client";
 import type { Database } from "@/types/database.generated";
 
-let browserClient: ReturnType<typeof createBrowserClient<Database>> | null =
-  null;
+let browserClient: SupabaseClient<Database> | null = null;
 
 export function createBrowserSupabaseClient() {
   if (browserClient) {

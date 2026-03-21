@@ -1,5 +1,5 @@
-import { FrontRouter } from "@/features/mock-front/router";
+import { notFound } from "next/navigation";
 
-export default function SlugPage() {
-  return <FrontRouter />;
+export default function CatchAllNotFoundPage() {
+  notFound();
 }
