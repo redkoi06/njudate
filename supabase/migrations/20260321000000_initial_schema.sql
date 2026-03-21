@@ -1,0 +1,2 @@
+-- Initial migration placeholder.
+-- Real tables, RLS policies, and functions should be added here in subsequent steps.

@@ -1,0 +1,10 @@
+node_modules
+.next
+coverage
+UI_demo
+bootstrap-app
+supabase/.temp
+src/types/database.generated.ts
+AGENTS.md
+开发文档
+需求文档.md

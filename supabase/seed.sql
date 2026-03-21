@@ -1,0 +1,2 @@
+-- Seed data placeholder.
+-- Keep local development data here when the domain model is finalized.
