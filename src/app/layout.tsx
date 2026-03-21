@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Geist_Mono, Noto_Sans_SC, Noto_Serif_SC } from "next/font/google";
 import type { ReactNode } from "react";
 
+import { GlobalPageTransition } from "@/components/global-page-transition";
+
 import "./globals.css";
 
 const sans = Noto_Sans_SC({
@@ -37,7 +39,9 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${sans.variable} ${serif.variable} ${mono.variable}`}
     >
-      <body>{children}</body>
+      <body>
+        <GlobalPageTransition>{children}</GlobalPageTransition>
+      </body>
     </html>
   );
 }

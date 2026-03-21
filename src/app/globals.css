@@ -331,3 +331,67 @@ a {
     transform: none;
   }
 }
+
+.page-transition-content {
+  transition:
+    opacity var(--page-transition-enter-duration, 260ms)
+      cubic-bezier(0.22, 1, 0.36, 1),
+    transform var(--page-transition-enter-duration, 260ms)
+      cubic-bezier(0.22, 1, 0.36, 1),
+    filter var(--page-transition-enter-duration, 260ms)
+      cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.page-transition-content[data-transition-phase="entering"],
+.page-transition-content[data-transition-phase="waiting"] {
+  opacity: 0.94;
+  transform: scale(0.996);
+  filter: saturate(0.97) brightness(1.03);
+}
+
+.page-transition-content[data-transition-phase="exiting"] {
+  transition-duration: var(--page-transition-exit-duration, 320ms);
+  opacity: 1;
+  transform: scale(1);
+  filter: saturate(1) brightness(1);
+}
+
+.page-transition-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgb(255 255 255 / 0.98);
+  opacity: 0;
+  pointer-events: none;
+  backdrop-filter: blur(0px);
+  filter: brightness(1);
+  transition:
+    opacity var(--page-transition-enter-duration, 260ms)
+      cubic-bezier(0.22, 1, 0.36, 1),
+    backdrop-filter var(--page-transition-enter-duration, 260ms)
+      cubic-bezier(0.22, 1, 0.36, 1),
+    filter var(--page-transition-enter-duration, 260ms)
+      cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.page-transition-overlay[data-transition-phase="entering"] {
+  opacity: 0.78;
+  pointer-events: auto;
+  backdrop-filter: blur(2px);
+  filter: brightness(1.02);
+}
+
+.page-transition-overlay[data-transition-phase="waiting"] {
+  opacity: 0.94;
+  pointer-events: auto;
+  backdrop-filter: blur(2px);
+  filter: brightness(1.03);
+}
+
+.page-transition-overlay[data-transition-phase="exiting"] {
+  opacity: 0;
+  pointer-events: auto;
+  backdrop-filter: blur(0px);
+  filter: brightness(1);
+  transition-duration: var(--page-transition-exit-duration, 320ms);
+}

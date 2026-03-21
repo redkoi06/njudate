@@ -25,7 +25,7 @@ export default async function AboutPage() {
 
   return (
     <PublicShell signedIn={Boolean(user)}>
-      <section className="mx-auto max-w-5xl px-5 py-14 md:px-8">
+      <section className="mx-auto max-w-5xl px-5 pt-14 pb-10 md:px-8 md:pb-12">
         <SurfaceCard className="space-y-10">
           <SectionHeader
             eyebrow="关于平台"

@@ -93,7 +93,11 @@ export default async function MatchDetailPage({
           </div>
         ) : null}
         {detail.matchPairId && !detail.contactInfo ? (
-          <form action={triggerMatchContactAction} className="mt-6">
+          <form
+            action={triggerMatchContactAction}
+            className="mt-6"
+            data-page-transition="route"
+          >
             <input type="hidden" name="matchPairId" value={detail.matchPairId} />
             <input type="hidden" name="matchResultId" value={detail.id} />
             <Button type="submit">联系 TA</Button>

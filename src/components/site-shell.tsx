@@ -41,7 +41,7 @@ export function PublicShell({
         </div>
       </header>
       <main>{children}</main>
-      <footer className="border-border/80 mt-20 border-t">
+      <footer className="border-border/80 mt-12 border-t md:mt-14">
         <div className="mx-auto flex max-w-6xl flex-col gap-6 px-5 py-10 md:flex-row md:items-end md:justify-between md:px-8">
           <div>
             <BrandMark />
@@ -86,7 +86,7 @@ export function AppShell({
               </Link>
             ))}
           </nav>
-          <form action={signOutAction}>
+          <form action={signOutAction} data-page-transition="route">
             <Button tone="ghost" size="sm" type="submit">
               退出登录
             </Button>

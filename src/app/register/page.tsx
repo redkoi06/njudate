@@ -57,7 +57,11 @@ export default async function RegisterPage({
                 {error}
               </p>
             ) : null}
-            <form action={registerUserAction} className="mt-8 grid gap-5">
+            <form
+              action={registerUserAction}
+              className="mt-8 grid gap-5"
+              data-page-transition="route"
+            >
               <Field
                 name="email"
                 label="学校邮箱"

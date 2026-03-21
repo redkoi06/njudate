@@ -37,7 +37,7 @@ export default async function LoginPage({
 
   return (
     <PublicShell>
-      <section className="mx-auto max-w-5xl px-5 py-14 md:px-8">
+      <section className="mx-auto max-w-5xl px-5 pt-14 pb-10 md:px-8 md:pb-12">
         <div className="grid gap-6 lg:grid-cols-[1.08fr_0.92fr]">
           <SurfaceCard>
             <SectionHeader
@@ -50,7 +50,11 @@ export default async function LoginPage({
                 {error}
               </p>
             ) : null}
-            <form action={signInWithPasswordAction} className="mt-8 grid gap-5">
+            <form
+              action={signInWithPasswordAction}
+              className="mt-8 grid gap-5"
+              data-page-transition="route"
+            >
               <Field
                 name="email"
                 label="学校邮箱"

@@ -16,7 +16,7 @@ export default async function ContactPage({
 
   return (
     <PublicShell signedIn={Boolean(user)}>
-      <section className="mx-auto max-w-4xl px-5 py-14 md:px-8">
+      <section className="mx-auto max-w-4xl px-5 pt-14 pb-10 md:px-8 md:pb-12">
         <SurfaceCard>
           <SectionHeader
             eyebrow="联系我们"
@@ -24,7 +24,11 @@ export default async function ContactPage({
             description="这里适合咨询、建议、问题反馈和一般性说明；如果是紧急或高风险问题，请同步使用你更可靠的线下渠道。"
             action={submitted ? <Badge tone="success">已提交</Badge> : null}
           />
-          <form action={createContactRequestAction} className="mt-8 grid gap-5">
+          <form
+            action={createContactRequestAction}
+            className="mt-8 grid gap-5"
+            data-page-transition="route"
+          >
             <div className="grid gap-5 md:grid-cols-2">
               <Field name="senderName" label="称呼" required />
               <Field
