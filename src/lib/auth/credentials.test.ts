@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  canSubmitSignUpForm,
   getAuthErrorMessage,
   signInSchema,
   signUpSchema,
@@ -9,19 +10,19 @@ import {
 describe("signInSchema", () => {
   it("normalizes a valid school email", () => {
     const result = signInSchema.safeParse({
-      email: "Student@QQ.com",
+      email: "Student@smail.nju.edu.cn",
       password: "secret1",
     });
 
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.email).toBe("student@qq.com");
+      expect(result.data.email).toBe("student@smail.nju.edu.cn");
     }
   });
 
   it("rejects an unsupported email domain", () => {
     const result = signInSchema.safeParse({
-      email: "student@example.com",
+      email: "student@qq.com",
       password: "secret1",
     });
 
@@ -35,7 +36,7 @@ describe("signInSchema", () => {
 describe("signUpSchema", () => {
   it("rejects mismatched confirmation passwords", () => {
     const result = signUpSchema.safeParse({
-      email: "student@qq.com",
+      email: "student@smail.nju.edu.cn",
       password: "secret1",
       confirmPassword: "secret2",
     });
@@ -44,6 +45,28 @@ describe("signUpSchema", () => {
     if (!result.success) {
       expect(result.error.issues[0]?.message).toBe("两次输入的密码不一致");
     }
+  });
+});
+
+describe("canSubmitSignUpForm", () => {
+  it("returns false for unsupported email domains", () => {
+    expect(
+      canSubmitSignUpForm({
+        email: "student@qq.com",
+        password: "secret1",
+        confirmPassword: "secret1",
+      }),
+    ).toBe(false);
+  });
+
+  it("returns true for a valid school email and matching passwords", () => {
+    expect(
+      canSubmitSignUpForm({
+        email: "student@smail.nju.edu.cn",
+        password: "secret1",
+        confirmPassword: "secret1",
+      }),
+    ).toBe(true);
   });
 });
 

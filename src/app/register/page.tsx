@@ -1,14 +1,9 @@
 import { redirect } from "next/navigation";
 
+import { RegisterForm } from "@/app/register/register-form";
 import { allowedEmailDomainsLabel } from "@/lib/auth/credentials";
 import { PublicShell } from "@/components/site-shell";
-import {
-  Button,
-  ButtonLink,
-  Field,
-  SectionHeader,
-  SurfaceCard,
-} from "@/components/site-ui";
+import { ButtonLink, SectionHeader, SurfaceCard } from "@/components/site-ui";
 import { registerUserAction } from "@/features/app/actions";
 import { getOptionalSessionUser } from "@/lib/auth/session";
 
@@ -43,13 +38,12 @@ export default async function RegisterPage({
           <SurfaceCard>
             <SectionHeader
               eyebrow="注册账号"
-              title="先创建账号，再完成邮箱确认。"
+              title="先创建账户，再完成邮箱确认。"
               description={`当前仅支持 ${allowedEmailDomainsLabel} 邮箱。注册成功后，系统会向你的邮箱发送确认邮件。`}
             />
             {hasSent ? (
               <p className="mt-6 rounded-2xl border border-[color:var(--status-success)]/20 bg-[color:var(--status-success-bg)] px-4 py-3 text-sm text-[color:var(--status-success)]">
-                确认邮件已发送至 {email}
-                。请打开邮箱并点击确认链接，系统会在确认后自动登录。
+                确认邮件已发送至 {email}。请打开邮箱并点击确认链接，系统会在确认后自动登录。
               </p>
             ) : null}
             {error ? (
@@ -57,37 +51,7 @@ export default async function RegisterPage({
                 {error}
               </p>
             ) : null}
-            <form
-              action={registerUserAction}
-              className="mt-8 grid gap-5"
-              data-page-transition="route"
-            >
-              <Field
-                name="email"
-                label="学校邮箱"
-                type="email"
-                autoComplete="email"
-                defaultValue={email}
-                required
-              />
-              <Field
-                name="password"
-                label="密码"
-                type="password"
-                autoComplete="new-password"
-                required
-              />
-              <Field
-                name="confirmPassword"
-                label="确认密码"
-                type="password"
-                autoComplete="new-password"
-                required
-              />
-              <div className="flex justify-end">
-                <Button type="submit">注册并发送确认邮件</Button>
-              </div>
-            </form>
+            <RegisterForm action={registerUserAction} initialEmail={email} />
           </SurfaceCard>
 
           <SurfaceCard className="flex flex-col justify-between gap-8">

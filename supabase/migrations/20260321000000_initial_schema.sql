@@ -399,7 +399,7 @@ as $$
         where config_key = 'allowed_email_domains'
       ) domains
     ),
-    array['smail.nju.edu.cn', 'qq.com']::text[]
+    array['smail.nju.edu.cn']::text[]
   );
 $$;
 
@@ -414,7 +414,7 @@ declare
   email_domain text := lower(split_part(coalesce(new.email, ''), '@', 2));
 begin
   if new.email is null or email_domain = '' or not (email_domain = any (allowed_domains)) then
-    raise exception 'Only approved email domains are allowed.'
+    raise exception 'Only approved school email domains are allowed.'
       using errcode = '22023';
   end if;
 

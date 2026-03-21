@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const allowedEmailDomains = ["smail.nju.edu.cn", "qq.com"] as const;
+export const allowedEmailDomains = ["smail.nju.edu.cn"] as const;
 export const allowedEmailDomainsLabel = allowedEmailDomains.join(" 或 ");
 export const minimumPasswordLength = 6;
 
@@ -42,6 +42,14 @@ export const signUpSchema = z
       });
     }
   });
+
+export function canSubmitSignUpForm(input: {
+  email: string;
+  password: string;
+  confirmPassword: string;
+}) {
+  return signUpSchema.safeParse(input).success;
+}
 
 export function getAuthErrorMessage(error: unknown, fallback: string) {
   if (error instanceof z.ZodError) {

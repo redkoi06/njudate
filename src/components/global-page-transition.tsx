@@ -14,11 +14,12 @@ import {
 
 type TransitionPhase = "idle" | "entering" | "waiting" | "exiting";
 
-const ENTER_DURATION_MS = 260;
-const EXIT_DURATION_MS = 320;
-const ENTER_DURATION_REDUCED_MS = 120;
-const EXIT_DURATION_REDUCED_MS = 160;
+const ENTER_DURATION_MS = 160;
+const EXIT_DURATION_MS = 260;
+const ENTER_DURATION_REDUCED_MS = 90;
+const EXIT_DURATION_REDUCED_MS = 140;
 const FAILSAFE_DURATION_MS = 1400;
+const ROUTE_CHECK_INTERVAL_MS = 80;
 
 function clearTimer(timerRef: RefObject<number | null>) {
   if (timerRef.current !== null) {
@@ -78,6 +79,7 @@ export function GlobalPageTransition({
   const exitTimerRef = useRef<number | null>(null);
   const failsafeTimerRef = useRef<number | null>(null);
   const phaseTimerRef = useRef<number | null>(null);
+  const routeCheckTimerRef = useRef<number | null>(null);
 
   const schedulePhase = useCallback((nextPhase: TransitionPhase) => {
     clearTimer(phaseTimerRef);
@@ -92,6 +94,7 @@ export function GlobalPageTransition({
     clearTimer(exitTimerRef);
     clearTimer(failsafeTimerRef);
     clearTimer(phaseTimerRef);
+    clearTimer(routeCheckTimerRef);
     pendingNavigationRef.current = null;
     phaseRef.current = "idle";
     setPhase("idle");
@@ -136,7 +139,10 @@ export function GlobalPageTransition({
       const nextRouteKey = getCurrentRouteKey();
 
       if (previousRouteRef.current === nextRouteKey) {
-        phaseTimerRef.current = window.setTimeout(detectRouteChange, 40);
+        routeCheckTimerRef.current = window.setTimeout(
+          detectRouteChange,
+          ROUTE_CHECK_INTERVAL_MS,
+        );
         return;
       }
 
@@ -154,7 +160,7 @@ export function GlobalPageTransition({
     detectRouteChange();
 
     return () => {
-      clearTimer(phaseTimerRef);
+      clearTimer(routeCheckTimerRef);
     };
   }, [exitDuration, phase, resetTransition, schedulePhase]);
 
@@ -278,6 +284,7 @@ export function GlobalPageTransition({
       clearTimer(exitTimerRef);
       clearTimer(failsafeTimerRef);
       clearTimer(phaseTimerRef);
+      clearTimer(routeCheckTimerRef);
     };
   }, []);
 
