@@ -47,7 +47,6 @@ export function RegisterForm({
     <form
       action={action}
       className="mt-8 grid gap-5"
-      data-page-transition="route"
     >
       <Field
         name="email"

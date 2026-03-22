@@ -27,7 +27,6 @@ export default async function ContactPage({
           <form
             action={createContactRequestAction}
             className="mt-8 grid gap-5"
-            data-page-transition="route"
           >
             <div className="grid gap-5 md:grid-cols-2">
               <Field name="senderName" label="称呼" required />

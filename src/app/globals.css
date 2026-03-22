@@ -336,37 +336,21 @@ a {
   will-change: auto;
 }
 
-.page-transition-content[data-transition-phase="entering"] {
-  opacity: 1;
-  transform: none;
+.page-transition-content.page-entered {
+  animation: page-fade-in 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-.page-transition-content[data-transition-phase="exiting"] {
-  opacity: 1;
-  transform: none;
+@keyframes page-fade-in {
+  from {
+    opacity: 0.6;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
-.page-transition-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
-  background: rgb(255 255 255 / 1);
-  opacity: 0;
-  pointer-events: none;
-  will-change: opacity;
-  contain: strict;
-  transition:
-    opacity var(--page-transition-enter-duration, 260ms)
-      cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.page-transition-overlay[data-transition-phase="entering"] {
-  opacity: 0.76;
-  pointer-events: auto;
-}
-
-.page-transition-overlay[data-transition-phase="exiting"] {
-  opacity: 0;
-  pointer-events: auto;
-  transition-duration: var(--page-transition-exit-duration, 320ms);
+@media (prefers-reduced-motion: reduce) {
+  .page-transition-content.page-entered {
+    animation: none;
+  }
 }

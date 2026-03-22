@@ -96,7 +96,6 @@ export default async function MatchDetailPage({
           <form
             action={triggerMatchContactAction}
             className="mt-6"
-            data-page-transition="route"
           >
             <input type="hidden" name="matchPairId" value={detail.matchPairId} />
             <input type="hidden" name="matchResultId" value={detail.id} />

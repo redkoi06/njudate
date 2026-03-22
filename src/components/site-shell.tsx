@@ -86,7 +86,7 @@ export function AppShell({
               </Link>
             ))}
           </nav>
-          <form action={signOutAction} data-page-transition="route">
+          <form action={signOutAction}>
             <Button tone="ghost" size="sm" type="submit">
               退出登录
             </Button>

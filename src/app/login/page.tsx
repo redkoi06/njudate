@@ -104,7 +104,6 @@ export default async function LoginPage({
           <form
             action={signInWithPasswordAction}
             className="mt-8 grid gap-5"
-            data-page-transition="route"
           >
             <Field
               name="email"
