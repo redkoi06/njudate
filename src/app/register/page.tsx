@@ -35,23 +35,32 @@ export default async function RegisterPage({
     <PublicShell>
       <section className="mx-auto max-w-5xl px-5 py-14 md:px-8">
         <div className="grid gap-6 lg:grid-cols-[1.08fr_0.92fr]">
-          <SurfaceCard>
+          <SurfaceCard {...(hasSent ? { className: "flex h-full flex-col" } : {})}>
             <SectionHeader
               eyebrow="注册账号"
               title="先创建账户，再完成邮箱确认。"
               description={`当前仅支持 ${allowedEmailDomainsLabel} 邮箱。注册成功后，系统会向你的邮箱发送确认邮件。`}
             />
             {hasSent ? (
-              <p className="mt-6 rounded-2xl border border-[color:var(--status-success)]/20 bg-[color:var(--status-success-bg)] px-4 py-3 text-sm text-[color:var(--status-success)]">
-                确认邮件已发送至 {email}。请打开邮箱并点击确认链接，系统会在确认后自动登录。
-              </p>
+              <div className="flex flex-1 items-center">
+                <div className="w-full rounded-[28px] border border-[color:var(--status-success)]/22 bg-[color:var(--status-success-bg)] px-6 py-6 text-[color:var(--status-success)]">
+                  <p className="text-base leading-8">
+                    确认邮件已发送至 {email}。
+                  </p>
+                  <p className="mt-2 text-base leading-8">
+                    请打开邮箱并点击确认链接，系统会在确认后自动登录。您也可以选择点击确认邮件后使用邮箱和密码登录。
+                  </p>
+                </div>
+              </div>
             ) : null}
-            {error ? (
+            {!hasSent && error ? (
               <p className="mt-6 rounded-2xl border border-[color:var(--status-warning)]/20 bg-[color:var(--status-warning-bg)] px-4 py-3 text-sm text-[color:var(--status-warning)]">
                 {error}
               </p>
             ) : null}
-            <RegisterForm action={registerUserAction} initialEmail={email} />
+            {!hasSent ? (
+              <RegisterForm action={registerUserAction} initialEmail={email} />
+            ) : null}
           </SurfaceCard>
 
           <SurfaceCard className="flex flex-col justify-between gap-8">

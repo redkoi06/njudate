@@ -13,7 +13,7 @@ export const emailSchema = z
       allowedEmailDomains.some((domain) =>
         value.toLowerCase().endsWith(`@${domain}`),
       ),
-    `当前仅支持 ${allowedEmailDomainsLabel} 邮箱`,
+    "请使用南大邮箱注册",
   )
   .transform((value) => value.toLowerCase());
 
@@ -43,12 +43,48 @@ export const signUpSchema = z
     }
   });
 
+const signUpFieldNames = ["email", "password", "confirmPassword"] as const;
+
+type SignUpFieldName = (typeof signUpFieldNames)[number];
+
+export type SignUpFieldErrors = Partial<Record<SignUpFieldName, string>>;
+
+function isSignUpFieldName(value: unknown): value is SignUpFieldName {
+  return signUpFieldNames.some((fieldName) => fieldName === value);
+}
+
+export function getSignUpFieldErrors(input: {
+  email: string;
+  password: string;
+  confirmPassword: string;
+}): SignUpFieldErrors {
+  const result = signUpSchema.safeParse(input);
+
+  if (result.success) {
+    return {};
+  }
+
+  const fieldErrors: SignUpFieldErrors = {};
+
+  for (const issue of result.error.issues) {
+    const [fieldName] = issue.path;
+
+    if (!isSignUpFieldName(fieldName) || fieldErrors[fieldName]) {
+      continue;
+    }
+
+    fieldErrors[fieldName] = issue.message;
+  }
+
+  return fieldErrors;
+}
+
 export function canSubmitSignUpForm(input: {
   email: string;
   password: string;
   confirmPassword: string;
 }) {
-  return signUpSchema.safeParse(input).success;
+  return Object.keys(getSignUpFieldErrors(input)).length === 0;
 }
 
 export function getAuthErrorMessage(error: unknown, fallback: string) {

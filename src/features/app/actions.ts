@@ -41,6 +41,8 @@ const contactSchema = z.object({
 });
 
 const accountRequestTypeSchema = z.enum(["export_data", "delete_account"]);
+const INVALID_LOGIN_CREDENTIALS_MESSAGE = "Invalid login credentials";
+const UNREGISTERED_LOGIN_ERROR_MESSAGE = "此邮箱未注册，请先注册";
 
 function redirectWithSearchParams(
   pathname: string,
@@ -236,6 +238,45 @@ function parseContactPayload(payload: unknown, currentUserId: string) {
   };
 }
 
+function isInvalidLoginCredentialsError(error: unknown) {
+  if (!error || typeof error !== "object" || !("message" in error)) {
+    return false;
+  }
+
+  const message = (error as { message?: unknown }).message;
+  return (
+    typeof message === "string" &&
+    message.includes(INVALID_LOGIN_CREDENTIALS_MESSAGE)
+  );
+}
+
+async function hasRegisteredAuthUser(email: string) {
+  const admin = createAdminSupabaseClient();
+  const normalizedEmail = email.trim().toLowerCase();
+  const perPage = 500;
+  const maxPages = 20;
+
+  for (let page = 1; page <= maxPages; page += 1) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage });
+    if (error) {
+      return null;
+    }
+
+    const matched = data.users.some(
+      (user) => user.email?.toLowerCase() === normalizedEmail,
+    );
+    if (matched) {
+      return true;
+    }
+
+    if (data.users.length < perPage) {
+      return false;
+    }
+  }
+
+  return null;
+}
+
 export async function registerUserAction(formData: FormData) {
   const rawEmail = stringField(formData, "email").trim().toLowerCase();
   const payload = signUpSchema.safeParse({
@@ -298,6 +339,17 @@ export async function signInWithPasswordAction(formData: FormData) {
   });
 
   if (error) {
+    if (isInvalidLoginCredentialsError(error)) {
+      const hasRegisteredUser = await hasRegisteredAuthUser(payload.data.email);
+
+      if (hasRegisteredUser === false) {
+        return redirectWithSearchParams("/login", {
+          email: payload.data.email,
+          error: UNREGISTERED_LOGIN_ERROR_MESSAGE,
+        });
+      }
+    }
+
     return redirectWithSearchParams("/login", {
       email: payload.data.email,
       error: getAuthErrorMessage(error, "登录失败，请稍后再试。"),

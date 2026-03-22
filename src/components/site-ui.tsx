@@ -166,11 +166,13 @@ export function Badge({
 export function Field({
   label,
   hint,
+  error,
   className,
   ...props
 }: InputHTMLAttributes<HTMLInputElement> & {
   label: string;
   hint?: string;
+  error?: string;
 }) {
   return (
     <label className="block">
@@ -180,13 +182,23 @@ export function Field({
       <input
         className={cn(
           "border-border bg-background text-foreground focus:border-primary focus:ring-primary/15 w-full rounded-2xl border px-4 py-3 text-sm transition outline-none focus:ring-2",
+          error &&
+            "border-[color:var(--status-warning)] focus:border-[color:var(--status-warning)] focus:ring-[color:var(--status-warning)]/15",
           className,
         )}
         {...props}
+        aria-invalid={error ? true : props["aria-invalid"]}
       />
-      {hint ? (
-        <span className="text-muted-foreground mt-2 block text-xs leading-6">
-          {hint}
+      {hint || error ? (
+        <span
+          className={cn(
+            "mt-2 block text-xs leading-6",
+            error
+              ? "text-[color:var(--status-warning)]"
+              : "text-muted-foreground",
+          )}
+        >
+          {error ?? hint}
         </span>
       ) : null}
     </label>

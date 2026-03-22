@@ -4,7 +4,10 @@ import { useState } from "react";
 import { useFormStatus } from "react-dom";
 
 import { Button, Field } from "@/components/site-ui";
-import { canSubmitSignUpForm } from "@/lib/auth/credentials";
+import {
+  getSignUpFieldErrors,
+  minimumPasswordLength,
+} from "@/lib/auth/credentials";
 
 function SubmitButton({ disabled }: { disabled: boolean }) {
   const { pending } = useFormStatus();
@@ -27,11 +30,18 @@ export function RegisterForm({
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
-  const canSubmit = canSubmitSignUpForm({
+  const fieldErrors = getSignUpFieldErrors({
     email,
     password,
     confirmPassword,
   });
+  const canSubmit = Object.keys(fieldErrors).length === 0;
+  const emailError = email.length > 0 ? fieldErrors.email : undefined;
+  const passwordError = password.length > 0 ? fieldErrors.password : undefined;
+  const confirmPasswordError =
+    password.length > 0 && confirmPassword.length > 0
+      ? fieldErrors.confirmPassword
+      : undefined;
 
   return (
     <form
@@ -46,6 +56,7 @@ export function RegisterForm({
         autoComplete="email"
         value={email}
         onChange={(event) => setEmail(event.target.value)}
+        {...(emailError ? { error: emailError } : {})}
         required
       />
       <Field
@@ -53,8 +64,11 @@ export function RegisterForm({
         label="密码"
         type="password"
         autoComplete="new-password"
+        minLength={minimumPasswordLength}
         value={password}
         onChange={(event) => setPassword(event.target.value)}
+        hint={`密码至少 ${minimumPasswordLength} 位`}
+        {...(passwordError ? { error: passwordError } : {})}
         required
       />
       <Field
@@ -64,6 +78,7 @@ export function RegisterForm({
         autoComplete="new-password"
         value={confirmPassword}
         onChange={(event) => setConfirmPassword(event.target.value)}
+        {...(confirmPasswordError ? { error: confirmPasswordError } : {})}
         required
       />
       <div className="flex justify-end">

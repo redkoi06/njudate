@@ -336,8 +336,7 @@ a {
   will-change: auto;
 }
 
-.page-transition-content[data-transition-phase="entering"],
-.page-transition-content[data-transition-phase="waiting"] {
+.page-transition-content[data-transition-phase="entering"] {
   opacity: 1;
   transform: none;
 }
@@ -363,11 +362,6 @@ a {
 
 .page-transition-overlay[data-transition-phase="entering"] {
   opacity: 0.76;
-  pointer-events: auto;
-}
-
-.page-transition-overlay[data-transition-phase="waiting"] {
-  opacity: 0.9;
   pointer-events: auto;
 }
 

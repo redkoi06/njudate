@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   canSubmitSignUpForm,
+  getSignUpFieldErrors,
   getAuthErrorMessage,
   signInSchema,
   signUpSchema,
@@ -28,7 +29,7 @@ describe("signInSchema", () => {
 
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.issues[0]?.message).toContain("当前仅支持");
+      expect(result.error.issues[0]?.message).toBe("请使用南大邮箱注册");
     }
   });
 });
@@ -67,6 +68,44 @@ describe("canSubmitSignUpForm", () => {
         confirmPassword: "secret1",
       }),
     ).toBe(true);
+  });
+});
+
+describe("getSignUpFieldErrors", () => {
+  it("returns an email error when the email is not a nju address", () => {
+    expect(
+      getSignUpFieldErrors({
+        email: "student@qq.com",
+        password: "secret1",
+        confirmPassword: "secret1",
+      }),
+    ).toMatchObject({
+      email: "请使用南大邮箱注册",
+    });
+  });
+
+  it("returns a password error when the password is shorter than 6 characters", () => {
+    expect(
+      getSignUpFieldErrors({
+        email: "student@smail.nju.edu.cn",
+        password: "12345",
+        confirmPassword: "12345",
+      }),
+    ).toMatchObject({
+      password: "密码至少 6 位",
+    });
+  });
+
+  it("returns a confirmation error when the passwords do not match", () => {
+    expect(
+      getSignUpFieldErrors({
+        email: "student@smail.nju.edu.cn",
+        password: "secret1",
+        confirmPassword: "secret2",
+      }),
+    ).toMatchObject({
+      confirmPassword: "两次输入的密码不一致",
+    });
   });
 });
 

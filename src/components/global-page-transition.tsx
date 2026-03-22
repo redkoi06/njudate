@@ -12,14 +12,14 @@ import {
   type ReactNode,
 } from "react";
 
-type TransitionPhase = "idle" | "entering" | "waiting" | "exiting";
+type TransitionPhase = "idle" | "entering" | "exiting";
 
 const ENTER_DURATION_MS = 160;
 const EXIT_DURATION_MS = 260;
 const ENTER_DURATION_REDUCED_MS = 90;
 const EXIT_DURATION_REDUCED_MS = 140;
 const FAILSAFE_DURATION_MS = 1400;
-const ROUTE_CHECK_INTERVAL_MS = 80;
+const ROUTE_CHECK_INTERVAL_MS = 100;
 
 function clearTimer(timerRef: RefObject<number | null>) {
   if (timerRef.current !== null) {
@@ -116,8 +116,6 @@ export function GlobalPageTransition({
     enterTimerRef.current = window.setTimeout(() => {
       pendingNavigationRef.current?.();
       pendingNavigationRef.current = null;
-      phaseRef.current = "waiting";
-      setPhase("waiting");
       enterTimerRef.current = null;
     }, enterDuration);
 
@@ -131,7 +129,7 @@ export function GlobalPageTransition({
   }, []);
 
   useEffect(() => {
-    if (phase !== "entering" && phase !== "waiting") {
+    if (phase !== "entering") {
       return;
     }
 
