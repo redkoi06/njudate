@@ -43,6 +43,16 @@ const contactSchema = z.object({
 const accountRequestTypeSchema = z.enum(["export_data", "delete_account"]);
 const INVALID_LOGIN_CREDENTIALS_MESSAGE = "Invalid login credentials";
 const UNREGISTERED_LOGIN_ERROR_MESSAGE = "此邮箱未注册，请先注册";
+const REGISTERED_EMAIL_ERROR_MESSAGE = "该邮箱已注册，请直接登录。";
+const RESEND_CONFIRMATION_SUCCESS_MESSAGE =
+  "该邮箱已注册，确认邮件已重新发送，请查收邮箱完成确认。";
+const RESEND_CONFIRMATION_FAILURE_MESSAGE =
+  "该邮箱已注册，但确认邮件重发失败，请稍后再试。";
+
+type AuthRegistrationStatus =
+  | "not_found"
+  | "registered_confirmed"
+  | "registered_unconfirmed";
 
 function redirectWithSearchParams(
   pathname: string,
@@ -250,7 +260,9 @@ function isInvalidLoginCredentialsError(error: unknown) {
   );
 }
 
-async function hasRegisteredAuthUser(email: string) {
+async function getAuthRegistrationStatus(
+  email: string,
+): Promise<AuthRegistrationStatus> {
   const admin = createAdminSupabaseClient();
   const normalizedEmail = email.trim().toLowerCase();
   const perPage = 500;
@@ -259,22 +271,24 @@ async function hasRegisteredAuthUser(email: string) {
   for (let page = 1; page <= maxPages; page += 1) {
     const { data, error } = await admin.auth.admin.listUsers({ page, perPage });
     if (error) {
-      return null;
+      throw error;
     }
 
-    const matched = data.users.some(
+    const matched = data.users.find(
       (user) => user.email?.toLowerCase() === normalizedEmail,
     );
     if (matched) {
-      return true;
+      return matched.email_confirmed_at
+        ? "registered_confirmed"
+        : "registered_unconfirmed";
     }
 
     if (data.users.length < perPage) {
-      return false;
+      return "not_found";
     }
   }
 
-  return null;
+  throw new Error("无法确认邮箱注册状态");
 }
 
 export async function registerUserAction(formData: FormData) {
@@ -293,15 +307,42 @@ export async function registerUserAction(formData: FormData) {
   }
 
   const env = getPublicEnv();
+  const emailRedirectTo = new URL(
+    "/auth/confirm",
+    env.NEXT_PUBLIC_SITE_URL,
+  ).toString();
+  const registrationStatus = await getAuthRegistrationStatus(payload.data.email);
+
+  if (registrationStatus === "registered_confirmed") {
+    return redirectWithSearchParams("/register", {
+      email: payload.data.email,
+      error: REGISTERED_EMAIL_ERROR_MESSAGE,
+    });
+  }
+
   const supabase = await createServerSupabaseClient();
+  if (registrationStatus === "registered_unconfirmed") {
+    const { error: resendError } = await supabase.auth.resend({
+      type: "signup",
+      email: payload.data.email,
+      options: {
+        emailRedirectTo,
+      },
+    });
+
+    return redirectWithSearchParams("/register", {
+      email: payload.data.email,
+      error: resendError
+        ? RESEND_CONFIRMATION_FAILURE_MESSAGE
+        : RESEND_CONFIRMATION_SUCCESS_MESSAGE,
+    });
+  }
+
   const { error } = await supabase.auth.signUp({
     email: payload.data.email,
     password: payload.data.password,
     options: {
-      emailRedirectTo: new URL(
-        "/auth/confirm",
-        env.NEXT_PUBLIC_SITE_URL,
-      ).toString(),
+      emailRedirectTo,
     },
   });
 
@@ -340,9 +381,9 @@ export async function signInWithPasswordAction(formData: FormData) {
 
   if (error) {
     if (isInvalidLoginCredentialsError(error)) {
-      const hasRegisteredUser = await hasRegisteredAuthUser(payload.data.email);
+      const status = await getAuthRegistrationStatus(payload.data.email);
 
-      if (hasRegisteredUser === false) {
+      if (status === "not_found") {
         return redirectWithSearchParams("/login", {
           email: payload.data.email,
           error: UNREGISTERED_LOGIN_ERROR_MESSAGE,

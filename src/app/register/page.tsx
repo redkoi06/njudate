@@ -48,7 +48,7 @@ export default async function RegisterPage({
                     确认邮件已发送至 {email}。
                   </p>
                   <p className="mt-2 text-base leading-8">
-                    请打开邮箱并点击确认链接，系统会在确认后自动登录。您也可以选择点击确认邮件后使用邮箱和密码登录。
+                    请打开邮箱并点击确认链接。确认后，打开该链接的浏览器会直接进入站内主页。若要继续使用当前页面，请返回此页，用邮箱和密码登录。
                   </p>
                 </div>
               </div>
@@ -72,8 +72,8 @@ export default async function RegisterPage({
                 {[
                   "填写学校邮箱和登录密码。",
                   "查收确认邮件并点击激活链接。",
-                  "确认成功后自动进入站内主页。",
-                  "后续直接使用邮箱和密码登录。",
+                  "确认成功后，打开确认链接的浏览器会直接进入站内主页。",
+                  "若要继续使用当前页面，请返回此页，用邮箱和密码登录。",
                 ].map((item, index) => (
                   <div
                     key={item}
