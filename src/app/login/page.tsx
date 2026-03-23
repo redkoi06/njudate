@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import loginBrandIcon from "../../../icon/brand-mark-32.png";
+import loginBrandIcon from "../../../icon/icon.png";
 import { Button, Field } from "@/components/site-ui";
 import { signInWithPasswordAction } from "@/features/app/actions";
 import { getOptionalSessionUser } from "@/lib/auth/session";
@@ -42,7 +42,7 @@ export default async function LoginPage({
           src={LOGIN_HERO_IMAGE}
           alt="NJU Date 登录页展示图"
           fill
-          priority
+          loading="eager"
           sizes="(min-width: 1024px) 56vw, 100vw"
           className="object-cover"
         />

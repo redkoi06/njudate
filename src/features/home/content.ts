@@ -61,7 +61,7 @@ export const HOME_COMMITMENTS: HomeCommitment[] = [
 
 export const HOME_FAQ: HomeFaqItem[] = [
   {
-    question: "谁可以使用 NJU Date？",
+    question: "谁可以使用 NJU DATE？",
     answer: "当前版本仅对校内邮箱用户开放，外部邮箱无法进入站内流程。",
   },
   {

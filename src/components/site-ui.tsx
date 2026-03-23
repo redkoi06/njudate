@@ -10,7 +10,7 @@ import type {
   TextareaHTMLAttributes,
 } from "react";
 
-import brandMark from "../../icon/brand-mark-40.png";
+import brandMark from "../../icon/icon.png";
 import { cn } from "@/lib/utils";
 
 export function BrandMark() {

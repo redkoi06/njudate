@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-import brandMark from "../../icon/brand-mark-40.png";
+import brandMark from "../../icon/icon.png";
 import { signOutAction } from "@/features/app/actions";
 import { BRAND_NAME, USER_NAV_ITEMS } from "@/lib/site";
 import { cn } from "@/lib/utils";
@@ -68,7 +68,7 @@ export function PublicShell({
   );
 
   return (
-    <div className="min-h-screen">
+    <div className="flex min-h-screen flex-col">
       <header className="border-border/80 bg-background/90 sticky top-0 z-40 border-b backdrop-blur-xl">
         <div
           className={cn(
@@ -111,7 +111,7 @@ export function PublicShell({
           )}
         </div>
       </header>
-      <main>{children}</main>
+      <main className="flex-1">{children}</main>
       <footer className="border-border mt-12 border-t bg-[color:var(--cream-warm)]/70 md:mt-14">
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-10 px-5 py-12 md:px-8 lg:flex-row lg:justify-between">
           <div className="max-w-sm">

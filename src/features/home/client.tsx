@@ -1,6 +1,7 @@
 "use client";
 
 import { ChevronDown } from "lucide-react";
+import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 
 import { cn } from "@/lib/utils";
@@ -38,6 +39,58 @@ function getCountdownSegments(targetAt: string | null, now: number) {
     { label: "分", value: minutes.toString().padStart(2, "0") },
     { label: "秒", value: seconds.toString().padStart(2, "0") },
   ] satisfies CountdownSegment[];
+}
+
+export function HomeScrollButton({
+  targetId,
+  className,
+  children,
+}: {
+  targetId: string;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      className={className}
+      aria-controls={targetId}
+      onClick={() => {
+        const target = document.getElementById(targetId);
+        if (!target) {
+          return;
+        }
+
+        const headerOffset = 32;
+        const startY = window.scrollY;
+        const targetY = Math.max(
+          target.getBoundingClientRect().top + startY - headerOffset,
+          0,
+        );
+        const distance = targetY - startY;
+        if (Math.abs(distance) < 1) {
+          return;
+        }
+
+        const durationMs = 520;
+        const startAt = performance.now();
+
+        const step = (now: number) => {
+          const progress = Math.min((now - startAt) / durationMs, 1);
+          const eased = 1 - Math.pow(1 - progress, 3);
+          window.scrollTo(0, startY + distance * eased);
+
+          if (progress < 1) {
+            window.requestAnimationFrame(step);
+          }
+        };
+
+        window.requestAnimationFrame(step);
+      }}
+    >
+      {children}
+    </button>
+  );
 }
 
 export function HomeCountdown({ targetAt }: { targetAt: string | null }) {

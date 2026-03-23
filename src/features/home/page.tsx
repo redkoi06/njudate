@@ -10,11 +10,11 @@ import {
   Sparkles,
 } from "lucide-react";
 
-import homeBrandIcon from "../../../icon/brand-mark-40.png";
+import homeBrandIcon from "../../../icon/icon.png";
 import { getOptionalSessionUser } from "@/lib/auth/session";
 import { BRAND_NAME } from "@/lib/site";
 
-import { HomeCountdown, HomeFaqAccordion } from "./client";
+import { HomeCountdown, HomeFaqAccordion, HomeScrollButton } from "./client";
 import {
   buildHomeSteps,
   HOME_COMMITMENTS,
@@ -203,7 +203,7 @@ export default async function HomePage() {
                 src={HOME_PLACEHOLDER_PHOTO}
                 alt="NJU Date 首页首屏展示图"
                 fill
-                priority
+                loading="eager"
                 sizes="100vw"
                 className="home-hero-image object-cover"
               />
@@ -236,12 +236,12 @@ export default async function HomePage() {
                       {homeData.primaryLabel}
                       <ArrowRight size={16} />
                     </Link>
-                    <Link
-                      href="/about"
+                    <HomeScrollButton
+                      targetId="home-steps"
                       className="btn btn-secondary inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm"
                     >
                       了解平台机制
-                    </Link>
+                    </HomeScrollButton>
                   </div>
 
                   <p className="mt-6 text-sm leading-7 text-white/70">
@@ -281,7 +281,10 @@ export default async function HomePage() {
           </div>
         </section>
 
-        <section className="mx-auto w-full max-w-7xl px-5 py-18 md:px-8 md:py-22">
+        <section
+          id="home-steps"
+          className="mx-auto w-full max-w-7xl scroll-mt-24 px-5 py-18 md:px-8 md:py-22"
+        >
           <HomeSectionHeader
             eyebrow="使用流程"
             title="想收到青鸾带来的信笺，只需先静下心来理解自己。"
@@ -358,7 +361,7 @@ export default async function HomePage() {
                       </p>
                       <p className="text-secondary-foreground/85 mt-4 text-sm leading-8">
                         {BRAND_NAME}
-                        NJU Date只做好一件事：让两个有趣的灵魂相遇。我们衷心希望：帮助你认真理解自己、将参与的选择权交给你、在固定时间统一揭晓、只在彻底确认后开放有限联系。产品的价值不在于“更快”，而在于“更自然、更自主、更值得信任”。
+                        只做好一件事：让两个有趣的灵魂相遇。我们衷心希望：帮助你认真理解自己、将参与的选择权交给你、在固定时间统一揭晓、只在彻底确认后开放有限联系。产品的价值不在于“更快”，而在于“更自然、更自主、更值得信任”。
                       </p>
                     </div>
 
@@ -418,7 +421,7 @@ export default async function HomePage() {
           </div>
         </section>
 
-        <section className="mx-auto w-full max-w-5xl px-5 pt-18 pb-10 md:px-8 md:pt-22 md:pb-12">
+        <section className="mx-auto w-full max-w-7xl px-5 pt-18 pb-10 md:px-8 md:pt-22 md:pb-12">
           <HomeSectionHeader
             eyebrow="常见问题"
             title="子曰：“不患人之不己知，患不知人也。”（《论语·学而》）"

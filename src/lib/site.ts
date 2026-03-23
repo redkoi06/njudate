@@ -1,4 +1,4 @@
-export const BRAND_NAME = "NJU Date";
+export const BRAND_NAME = "NJU DATE";
 export const SCHOOL_EMAIL_DOMAIN = "smail.nju.edu.cn";
 export const MATCH_SCHEDULE_TEXT = "每周三 20:00 统一公布结果";
 

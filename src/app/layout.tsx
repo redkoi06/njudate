@@ -2,9 +2,7 @@ import type { Metadata } from "next";
 import { Geist_Mono, Noto_Sans_SC, Noto_Serif_SC } from "next/font/google";
 import type { ReactNode } from "react";
 
-import appleTouchIcon from "../../icon/apple-touch-icon.png";
-import favicon16 from "../../icon/favicon-16x16.png";
-import favicon32 from "../../icon/favicon-32x32.png";
+import appIcon from "../../icon/icon.png";
 import { GlobalPageTransition } from "@/components/global-page-transition";
 
 import "./globals.css";
@@ -29,13 +27,13 @@ const mono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "NJU Date",
+  title: "NJU DATE | 南小配",
   icons: {
     icon: [
-      { url: favicon32.src, sizes: "32x32", type: "image/png" },
-      { url: favicon16.src, sizes: "16x16", type: "image/png" },
+      { url: appIcon.src, sizes: "32x32", type: "image/png" },
+      { url: appIcon.src, sizes: "16x16", type: "image/png" },
     ],
-    apple: [{ url: appleTouchIcon.src, sizes: "180x180", type: "image/png" }],
+    apple: [{ url: appIcon.src, sizes: "180x180", type: "image/png" }],
   },
   description: "面向校内用户的认真匹配平台。",
 };
