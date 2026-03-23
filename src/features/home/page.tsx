@@ -168,17 +168,14 @@ function HomeShell({
 function StatCard({
   value,
   label,
-  note,
 }: {
   value: string;
   label: string;
-  note: string;
 }) {
   return (
     <div className="rounded-[30px] border border-[color:rgba(139,74,82,0.1)] bg-white/84 px-6 py-7 text-center backdrop-blur">
       <p className="font-serif text-5xl text-[color:var(--wine-deep)]">{value}</p>
-      <p className="mt-3 text-sm text-foreground">{label}</p>
-      <p className="text-muted-foreground mt-2 text-xs leading-6">{note}</p>
+      <p className="text-muted-foreground mt-2 text-xs tracking-[0.28em]">{label}</p>
     </div>
   );
 }
@@ -258,26 +255,24 @@ export default async function HomePage() {
                 距下次配对揭晓
               </p>
               <HomeCountdown targetAt={homeData.countdownTargetAt} />
-              <p className="text-muted-foreground mt-2 text-xs leading-6">
-                {homeData.matchScheduleText}
-              </p>
             </div>
 
-            <div className="mt-10 grid gap-4 md:grid-cols-3">
+            <p className="text-muted-foreground mx-auto mt-6 block w-fit rounded-full border border-[color:rgba(139,74,82,0.12)] bg-white/76 px-4 py-1 text-center text-xs leading-6 tracking-[0.08em]">
+              {homeData.matchScheduleText}
+            </p>
+
+            <div className="mt-6 grid gap-4 md:grid-cols-3">
               <StatCard
                 value={formatCount(homeData.registeredUsers)}
                 label="已注册用户"
-                note={`过去 30 天新增 ${formatCount(homeData.newUsersLast30Days)} 人`}
               />
               <StatCard
                 value={`${homeData.questionnaireCompletionRate}%`}
                 label="问卷完成率"
-                note={`已有 ${formatCount(homeData.questionnaireCompletedUsers)} 人完成当前问卷`}
               />
               <StatCard
                 value={formatCount(homeData.matchedUsers)}
                 label="成功配对人数"
-                note="已收到正式匹配结果的累计人数"
               />
             </div>
           </div>

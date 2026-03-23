@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 
 import appIcon from "../../icon/icon.png";
 import { GlobalPageTransition } from "@/components/global-page-transition";
+import { NavigationProgress } from "@/components/navigation-progress";
 
 import "./globals.css";
 
@@ -48,6 +49,7 @@ export default function RootLayout({
       className={`${sans.variable} ${serif.variable} ${mono.variable}`}
     >
       <body>
+        <NavigationProgress />
         <GlobalPageTransition>{children}</GlobalPageTransition>
       </body>
     </html>
