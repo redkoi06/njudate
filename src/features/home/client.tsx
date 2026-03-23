@@ -61,7 +61,7 @@ export function HomeScrollButton({
           return;
         }
 
-        const headerOffset = 32;
+        const headerOffset = 96;
         const startY = window.scrollY;
         const targetY = Math.max(
           target.getBoundingClientRect().top + startY - headerOffset,

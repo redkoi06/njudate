@@ -3,11 +3,13 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import {
   ArrowRight,
-  CalendarClock,
-  HeartHandshake,
+  Gauge,
+  GraduationCap,
+  Link2,
   LockKeyhole,
-  ShieldCheck,
-  Sparkles,
+  ShieldUser,
+  SlidersHorizontal,
+  TimerReset,
 } from "lucide-react";
 
 import homeBrandIcon from "../../../icon/icon.png";
@@ -29,8 +31,8 @@ const HERO_SUBTITLE =
   "一笺抒怀，静候佳音。待得周中月升，缘起既明，便知何以同舟，何以结契。";
 const HERO_CAPTION = "仅限校内邮箱，不公开浏览，亦不无限滑动。每个人都有权利选择让自己舒服的社交方式。";
 
-const featureIcons = [Sparkles, CalendarClock, LockKeyhole, ShieldCheck] as const;
-const commitmentIcons = [ShieldCheck, CalendarClock, HeartHandshake] as const;
+const featureIcons = [Gauge, SlidersHorizontal, LockKeyhole, Link2] as const;
+const commitmentIcons = [GraduationCap, TimerReset, ShieldUser] as const;
 const numberFormatter = new Intl.NumberFormat("zh-CN");
 
 function formatCount(value: number) {
@@ -283,7 +285,7 @@ export default async function HomePage() {
 
         <section
           id="home-steps"
-          className="mx-auto w-full max-w-7xl scroll-mt-24 px-5 py-18 md:px-8 md:py-22"
+          className="mx-auto w-full max-w-7xl scroll-mt-24 px-5 pt-8 pb-18 md:px-8 md:pt-12 md:pb-22"
         >
           <HomeSectionHeader
             eyebrow="使用流程"
@@ -369,7 +371,7 @@ export default async function HomePage() {
                       {HOME_COMMITMENTS.map((item, index) => {
                         const Icon =
                           commitmentIcons[index % commitmentIcons.length] ??
-                          ShieldCheck;
+                          ShieldUser;
 
                         return (
                           <div
@@ -397,7 +399,7 @@ export default async function HomePage() {
 
               <div className="grid gap-5 md:grid-cols-2">
                 {HOME_FEATURES.map((feature, index) => {
-                  const Icon = featureIcons[index % featureIcons.length] ?? Sparkles;
+                  const Icon = featureIcons[index % featureIcons.length] ?? Gauge;
 
                   return (
                     <div
