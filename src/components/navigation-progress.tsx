@@ -7,7 +7,7 @@ export function NavigationProgress() {
   const pathname = usePathname();
   const [state, setState] = useState<"idle" | "complete">("idle");
   const prevPathRef = useRef(pathname);
-  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
     if (prevPathRef.current === pathname) return;
