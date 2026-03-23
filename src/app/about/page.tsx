@@ -24,7 +24,7 @@ export default async function AboutPage() {
   const user = await getOptionalSessionUser();
 
   return (
-    <PublicShell signedIn={Boolean(user)}>
+    <PublicShell signedIn={Boolean(user)} activePublicNavHref="/about">
       <section className="mx-auto max-w-5xl px-5 pt-14 pb-10 md:px-8 md:pb-12">
         <SurfaceCard className="space-y-10">
           <SectionHeader

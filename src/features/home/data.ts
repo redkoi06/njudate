@@ -22,7 +22,7 @@ export type HomePageData = HomePageMetrics & {
   matchScheduleText: string;
 };
 
-const DEFAULT_MATCH_SCHEDULE_TEXT = "每周二 20:30 统一公布结果。";
+const DEFAULT_MATCH_SCHEDULE_TEXT = "每周三 20:00 统一公布结果。";
 
 const chineseDateTimeFormatter = new Intl.DateTimeFormat("zh-CN", {
   timeZone: "Asia/Shanghai",

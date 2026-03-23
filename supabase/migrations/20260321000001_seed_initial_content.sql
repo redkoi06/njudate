@@ -4,7 +4,7 @@ values
   ('weekly_participation_open', 'true'::jsonb, 'Whether users can join the current batch.'),
   ('allowed_email_domains', '["smail.nju.edu.cn"]'::jsonb, 'Approved school email domains.'),
   ('auth_mode', '"otp"'::jsonb, 'Authentication mode used by the app.'),
-  ('match_schedule_text', '"每周二 20:30 统一公布结果。"'::jsonb, 'Public-facing match schedule description.'),
+  ('match_schedule_text', '"每周三 20:00 统一公布结果。"'::jsonb, 'Public-facing match schedule description.'),
   ('contact_flow_text', '"点击联系后，平台会向双方开放昵称与校内邮箱，并同步发送提醒。"'::jsonb, 'Public-facing contact flow description.'),
   ('feature_flags', '{"admin_console_enabled": false, "public_match_history": false}'::jsonb, 'Feature flags used by the app shell.'),
   ('repeat_match_cooldown_days', '28'::jsonb, 'Minimum cooldown before repeating the same match.')
@@ -82,9 +82,26 @@ on conflict (id) do nothing;
 with window_data as (
   select
     now() - interval '1 day' as signup_start_at,
-    now() + interval '2 days' as signup_end_at,
-    now() + interval '3 days' as match_run_at,
-    now() + interval '3 days' as result_publish_at
+    now() + interval '2 days' as signup_end_at
+),
+batch_schedule as (
+  select
+    signup_start_at,
+    signup_end_at,
+    (
+      (
+        date_trunc('week', timezone('Asia/Shanghai', signup_end_at))
+        + interval '2 days 20 hours'
+        + case
+            when timezone('Asia/Shanghai', signup_end_at)
+              <= date_trunc('week', timezone('Asia/Shanghai', signup_end_at))
+                + interval '2 days 20 hours'
+            then interval '0 days'
+            else interval '7 days'
+          end
+      ) at time zone 'Asia/Shanghai'
+    ) as match_run_at
+  from window_data
 )
 insert into public.match_batches (
   id,
@@ -106,10 +123,10 @@ select
   signup_start_at,
   signup_end_at,
   match_run_at,
-  result_publish_at,
+  match_run_at,
   'open',
   '系统初始化时创建的当前开放批次。'
-from window_data
+from batch_schedule
 on conflict (id) do nothing;
 
 insert into public.announcements (

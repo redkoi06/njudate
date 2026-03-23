@@ -7,7 +7,7 @@ export default async function PrivacyPage() {
   const user = await getOptionalSessionUser();
 
   return (
-    <PublicShell signedIn={Boolean(user)}>
+    <PublicShell signedIn={Boolean(user)} activePublicNavHref="/privacy">
       <section className="mx-auto max-w-5xl px-5 pt-14 pb-10 md:px-8 md:pb-12">
         <SurfaceCard className="space-y-8">
           <SectionHeader

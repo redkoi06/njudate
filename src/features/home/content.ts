@@ -23,39 +23,39 @@ export const HOME_PLACEHOLDER_PHOTO = "/images/photos/photo_1.jpg";
 
 export const HOME_FEATURES: HomeFeature[] = [
   {
-    title: "问卷优先，不刷人",
+    title: "极低社交压力",
     description:
-      "平台先理解你是谁，再决定是否生成匹配，不让注意力消耗在无尽曝光里。",
+      "你只需要做好你自己即可，不需要一昧迎合别人。当你对自己的描述越精确，遇见合适的ta概率自然越大。",
   },
   {
-    title: "固定节奏，减少焦虑",
+    title: "可控社交节奏",
     description:
-      "是否参加由你按周决定，结果统一揭晓，不需要反复刷新，也不会被持续在线压力裹挟。",
+      "是否参加完全由你按周决定，结果统一揭晓，不需要反复刷新，自动排除无效信息。",
   },
   {
-    title: "边界清晰，值得信任",
+    title: "清晰社交边界",
     description:
-      "不公开浏览，不开放搜索，联系方式只在正式联系动作后按规则开放。",
+      "不公开浏览，不开放搜索，联系方式按规则开放。",
   },
   {
-    title: "结果可读，不是黑箱",
+    title: "强调深度联结",
     description:
-      "不是只告诉你“有没有”，还会说明为什么会是这个人，帮助你判断值不值得继续。",
+      "一段关系远远不只是一个名分。我们不保证遇见的人百分百与你同频，但我们希望给每个人创造深度接触的机会。展现真实的自己，然后试着感受不同思维的碰撞，探索不一样的选择。",
   },
 ];
 
 export const HOME_COMMITMENTS: HomeCommitment[] = [
   {
-    title: "只对校内开放",
-    description: "使用学校邮箱进入，平台边界始终限定在校园场景内。",
+    title: "只对本校学生开放",
+    description: "使用学校邮箱注册登陆，参与者始终限定本校。",
   },
   {
     title: "每周统一揭晓",
-    description: "配对不是即时反馈，而是固定节奏的郑重决定。",
+    description: "配对不是即时反馈，而是一次郑重决定。",
   },
   {
-    title: "联系动作有后果",
-    description: "当你点击联系，平台才会按规则开放有限联系方式。",
+    title: "尊重隐私和边界",
+    description: "只有你主动选择联系，才会按规则开放有限联系方式。",
   },
 ];
 
@@ -99,24 +99,21 @@ export function buildHomeSteps({
   return [
     {
       number: "01",
-      title: "填写一份认真问卷",
+      title: "试以此简，澄怀观心",
       description:
-        "先把自己写清楚。兴趣、相处方式、边界感和关系期待，都会进入本周匹配。",
+        "我们不随波逐流。填写问卷的同时，重新构建自己的精神原乡。兴趣爱好，相处方式，边界感和关系期待，都由你自己决定。",
     },
     {
       number: "02",
-      title: "决定是否加入本周",
-      description: currentBatchLabel
-        ? `你可以按周报名。当前批次 ${currentBatchLabel} 的截止时间是 ${signupDeadlineLabel}。`
-        : "你可以按周报名。当前暂无开放批次，开放后这里会同步显示本轮截止时间。",
+      title: "诚心作缄，共赴一纸云蓝",
+      description:
+        "欲速则不达，你可以自由把握节奏，选择是否参加。等你准备好，青鸾随时恭候。"
     },
     {
       number: "03",
-      title: "在固定时间揭晓结果",
+      title: "期于旧约，静候锦书而至",
       description:
-        nextMatchTimeLabel === "待定"
-          ? "平台会在批次开放后显示本轮揭晓时间，并给出可读的匹配理由。"
-          : `平台会在 ${nextMatchTimeLabel} 统一开放结果，并给出可读的匹配理由。`,
+        "你会在每周三晚上收到信笺。先以笺识人，再与合适的人相遇。"
     },
   ] as const;
 }

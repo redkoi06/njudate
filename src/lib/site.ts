@@ -1,6 +1,6 @@
 export const BRAND_NAME = "NJU Date";
 export const SCHOOL_EMAIL_DOMAIN = "smail.nju.edu.cn";
-export const MATCH_SCHEDULE_TEXT = "每周二 20:30 统一公布结果";
+export const MATCH_SCHEDULE_TEXT = "每周三 20:00 统一公布结果";
 
 export const PUBLIC_NAV_ITEMS = [
   { href: "/", label: "首页" },

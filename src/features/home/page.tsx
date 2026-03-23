@@ -10,6 +10,7 @@ import {
   Sparkles,
 } from "lucide-react";
 
+import homeBrandIcon from "../../../icon/brand-mark-40.png";
 import { getOptionalSessionUser } from "@/lib/auth/session";
 import { BRAND_NAME } from "@/lib/site";
 
@@ -23,10 +24,10 @@ import {
 } from "./content";
 import { getHomePageData } from "./data";
 
-const HERO_TITLE = "让一次校内相遇，值得认真等待。";
+const HERO_TITLE = "共赴一场独一无二的金陵绮梦";
 const HERO_SUBTITLE =
-  "只需要认真填写一份问卷。每周二晚统一揭晓时，你会看到匹配结果，以及我们认为你们为什么值得认识。";
-const HERO_CAPTION = "仅限校内邮箱，不公开浏览，不做无限滑动。";
+  "一笺抒怀，静候佳音。待得周中月升，缘起既明，便知何以同舟，何以结契。";
+const HERO_CAPTION = "仅限校内邮箱，不公开浏览，亦不无限滑动。每个人都有权利选择让自己舒服的社交方式。";
 
 const featureIcons = [Sparkles, CalendarClock, LockKeyhole, ShieldCheck] as const;
 const commitmentIcons = [ShieldCheck, CalendarClock, HeartHandshake] as const;
@@ -45,9 +46,12 @@ function HomeBrandLogo({
 }) {
   return (
     <div className="flex items-center gap-3">
-      <div className="bg-primary text-primary-foreground flex size-9 items-center justify-center rounded-full text-sm font-medium shadow-[0_12px_24px_rgba(139,74,82,0.2)]">
-        宁
-      </div>
+      <Image
+        src={homeBrandIcon}
+        alt=""
+        aria-hidden
+        className="size-9 rounded-full shadow-[0_12px_24px_rgba(139,74,82,0.2)]"
+      />
       <div className="min-w-0">
         <p className="text-foreground font-serif text-sm tracking-[0.32em]">
           NJU DATE
@@ -118,10 +122,10 @@ function HomeShell({
       <footer className="border-border mt-12 border-t bg-[color:var(--cream-warm)]/70 md:mt-14">
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-10 px-5 py-12 md:px-8 lg:flex-row lg:justify-between">
           <div className="max-w-sm">
-            <HomeBrandLogo subtitle="面向校内用户的认真匹配平台" />
+            <HomeBrandLogo subtitle="共赴一场独一无二的金陵绮梦" />
             <p className="text-secondary-foreground/80 mt-4 text-sm leading-7">
               {BRAND_NAME}
-              只做校园内、低打扰、重边界的连接体验。没有公开广场，也没有无限滑动。
+              ：Not just dating tools, but connect the dots.
             </p>
           </div>
 
@@ -211,8 +215,8 @@ export default async function HomePage() {
                   <div className="inline-flex items-center gap-3 rounded-full border border-white/18 bg-white/10 px-5 py-2 text-sm text-white backdrop-blur-md">
                     <span className="inline-flex size-2.5 rounded-full bg-emerald-400 shadow-[0_0_18px_rgba(74,222,128,0.9)]" />
                     <span>
-                      本周已有 {formatCount(homeData.currentBatchParticipants)}{" "}
-                      人选择加入
+                      七日之内，共策青骢者已逾 {formatCount(homeData.currentBatchParticipants)}{" "}
+                      人
                     </span>
                   </div>
 
@@ -252,9 +256,6 @@ export default async function HomePage() {
                 距下次配对揭晓
               </p>
               <HomeCountdown targetAt={homeData.countdownTargetAt} />
-              <p className="text-secondary-foreground/80 mt-6 text-sm">
-                {homeData.nextMatchTimeLabel}
-              </p>
               <p className="text-muted-foreground mt-2 text-xs leading-6">
                 {homeData.matchScheduleText}
               </p>
@@ -283,8 +284,8 @@ export default async function HomePage() {
         <section className="mx-auto w-full max-w-7xl px-5 py-18 md:px-8 md:py-22">
           <HomeSectionHeader
             eyebrow="使用流程"
-            title="三步完成一次低打扰的认真相遇"
-            description="流程被刻意压缩得很短，但每一步都保持清晰。你始终知道自己正在决定什么，以及下一步会发生什么。"
+            title="想收到青鸾带来的信笺，只需先静下心来理解自己。"
+            description="没有浪费时间的复杂流程，无须主动让渡选择权。跟随自己的本心，剩下的交给时间和青鸾。"
           />
 
           <div className="mt-12 grid gap-6 xl:grid-cols-3">
@@ -323,9 +324,9 @@ export default async function HomePage() {
         <section className="border-border/70 border-y bg-[linear-gradient(180deg,rgba(245,240,238,0.8),rgba(255,253,251,0.96))]">
           <div className="mx-auto w-full max-w-7xl px-5 py-18 md:px-8 md:py-22">
             <HomeSectionHeader
-              eyebrow="Why NJU Date"
-              title="为什么值得信任，为什么值得等待"
-              description="我们把原则、边界和机制尽量写清楚，不用等到真正开始使用后才发现规则和预期不一致。"
+              eyebrow="WHY NJU DATE"
+              title="原子化时代的深度社交解决方案"
+              description="以下是我们的原则，愿景和边界："
             />
 
             <div className="mt-12 grid gap-6 xl:grid-cols-[1.04fr_0.96fr]">
@@ -345,7 +346,7 @@ export default async function HomePage() {
                         WHY NJU DATE
                       </p>
                       <p className="mt-3 font-serif text-3xl leading-[1.45]">
-                        不是为了制造更多曝光，而是为了减少无意义打扰。
+                        减少无意义的打扰，选择适合自己的相处方式。
                       </p>
                     </div>
                   </div>
@@ -353,11 +354,11 @@ export default async function HomePage() {
                   <div className="flex flex-col justify-between gap-6">
                     <div>
                       <p className="text-xs tracking-[0.28em] text-[color:var(--wine-medium)]">
-                        核心原则
+                        我们的愿景：
                       </p>
                       <p className="text-secondary-foreground/85 mt-4 text-sm leading-8">
                         {BRAND_NAME}
-                        只处理四件事：认真理解你、让你自己决定是否参与、在固定时间统一揭晓、只在明确动作后开放有限联系。产品的价值不在于“更快”，而在于“更稳、更清楚、更值得信任”。
+                        NJU Date只做好一件事：让两个有趣的灵魂相遇。我们衷心希望：帮助你认真理解自己、将参与的选择权交给你、在固定时间统一揭晓、只在彻底确认后开放有限联系。产品的价值不在于“更快”，而在于“更自然、更自主、更值得信任”。
                       </p>
                     </div>
 
@@ -420,8 +421,8 @@ export default async function HomePage() {
         <section className="mx-auto w-full max-w-5xl px-5 pt-18 pb-10 md:px-8 md:pt-22 md:pb-12">
           <HomeSectionHeader
             eyebrow="常见问题"
-            title="先确认规则，再决定是否开始"
-            description="如果规则、节奏和边界都符合你的预期，再进入会更轻松。首页先把最常见的问题展开给你看清楚。"
+            title="子曰：“不患人之不己知，患不知人也。”（《论语·学而》）"
+            description="如果原则，边界和愿景都符合你的预期，以下是对常见问题的说明。"
           />
 
           <div className="mt-12">

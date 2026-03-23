@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import loginBrandIcon from "../../../icon/brand-mark-32.png";
 import { Button, Field } from "@/components/site-ui";
 import { signInWithPasswordAction } from "@/features/app/actions";
 import { getOptionalSessionUser } from "@/lib/auth/session";
@@ -54,9 +55,12 @@ export default async function LoginPage({
               href="/"
               className="inline-flex items-center gap-3 rounded-full border border-white/18 bg-white/8 px-4 py-2 backdrop-blur-sm transition hover:bg-white/14"
             >
-              <span className="inline-flex size-8 items-center justify-center rounded-full bg-white/18 text-sm font-medium">
-                NJ
-              </span>
+              <Image
+                src={loginBrandIcon}
+                alt=""
+                aria-hidden
+                className="size-8 rounded-full"
+              />
               <span className="font-serif text-sm tracking-[0.24em]">
                 NJU DATE
               </span>

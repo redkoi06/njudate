@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import type {
   ButtonHTMLAttributes,
@@ -9,14 +10,18 @@ import type {
   TextareaHTMLAttributes,
 } from "react";
 
+import brandMark from "../../icon/brand-mark-40.png";
 import { cn } from "@/lib/utils";
 
 export function BrandMark() {
   return (
     <div className="flex items-center gap-3">
-      <div className="bg-primary text-primary-foreground flex size-10 items-center justify-center rounded-full text-sm font-medium shadow-[0_12px_24px_rgba(139,74,82,0.2)]">
-        NJ
-      </div>
+      <Image
+        src={brandMark}
+        alt=""
+        aria-hidden
+        className="size-10 rounded-full shadow-[0_12px_24px_rgba(139,74,82,0.2)]"
+      />
       <div className="min-w-0">
         <p className="text-foreground font-serif text-sm tracking-[0.32em]">
           NJU DATE
