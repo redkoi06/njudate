@@ -43,7 +43,7 @@
   ],
   "exclude": [
     "node_modules",
-    "UI_demo",
+    "trash/UI_demo",
     "bootstrap-app"
   ]
 }
