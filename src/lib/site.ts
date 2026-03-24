@@ -45,13 +45,26 @@ export function getQuestionnaireStatusLabel(
 ) {
   switch (status) {
     case "not_started":
-      return "未开始";
+      return "未填写";
     case "draft":
-      return "草稿中";
+      return "未填写";
     case "submitted":
-      return "已提交";
+      return "已填写";
     case "updated":
-      return "有待提交更新";
+      return "已填写";
+  }
+}
+
+export function getCurrentRoundStatusLabel(
+  status: "not_joined" | "waiting_result" | "result_published",
+) {
+  switch (status) {
+    case "not_joined":
+      return "未参与";
+    case "waiting_result":
+      return "请等待公布结果";
+    case "result_published":
+      return "结果已公布";
   }
 }
 

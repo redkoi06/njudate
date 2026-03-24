@@ -1,29 +1,27 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 
 export function NavigationProgress() {
   const pathname = usePathname();
-  const [state, setState] = useState<"idle" | "complete">("idle");
-  const prevPathRef = useRef(pathname);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const progressRef = useRef<HTMLDivElement | null>(null);
+  const initialPathRef = useRef(pathname);
 
   useEffect(() => {
-    if (prevPathRef.current === pathname) return;
-    prevPathRef.current = pathname;
+    const element = progressRef.current;
+    if (!element || pathname === initialPathRef.current) return;
 
-    clearTimeout(timerRef.current);
-    setState("complete");
-    timerRef.current = setTimeout(() => setState("idle"), 400);
-
-    return () => clearTimeout(timerRef.current);
+    initialPathRef.current = pathname;
+    element.style.animation = "none";
+    void element.offsetWidth;
+    element.style.animation =
+      "nav-progress-complete 400ms var(--ease-out-soft) forwards";
   }, [pathname]);
-
-  if (state === "idle") return null;
 
   return (
     <div
+      ref={progressRef}
       aria-hidden
       style={{
         position: "fixed",
@@ -34,7 +32,7 @@ export function NavigationProgress() {
         background: "var(--brand)",
         zIndex: 9999,
         pointerEvents: "none",
-        animation: "nav-progress-complete 400ms var(--ease-out-soft) forwards",
+        opacity: 0,
       }}
     />
   );

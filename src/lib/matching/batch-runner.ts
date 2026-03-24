@@ -107,23 +107,24 @@ function getOptionMap(question: QuestionRow) {
 
 function buildCounterpartSnapshot(profileSnapshot: Record<string, unknown>) {
   const snapshot = {
+    nickname:
+      typeof profileSnapshot.nickname === "string" ? profileSnapshot.nickname : null,
+    gender:
+      typeof profileSnapshot.gender === "string" ? profileSnapshot.gender : null,
+    grade: typeof profileSnapshot.grade === "string" ? profileSnapshot.grade : null,
     department:
       typeof profileSnapshot.department === "string"
         ? profileSnapshot.department
         : null,
-    major: typeof profileSnapshot.major === "string" ? profileSnapshot.major : null,
-    grade: typeof profileSnapshot.grade === "string" ? profileSnapshot.grade : null,
-    gender: typeof profileSnapshot.gender === "string" ? profileSnapshot.gender : null,
-    targetPreference:
-      typeof profileSnapshot.target_preference === "string"
-        ? profileSnapshot.target_preference
+    campus:
+      typeof profileSnapshot.campus === "string"
+        ? profileSnapshot.campus
         : null,
-    bio: typeof profileSnapshot.bio === "string" ? profileSnapshot.bio : null,
-    interests: Array.isArray(profileSnapshot.interests)
-      ? profileSnapshot.interests.filter(
-          (item): item is string => typeof item === "string",
-        )
-      : [],
+    birthYear:
+      typeof profileSnapshot.birth_year === "number" &&
+      Number.isInteger(profileSnapshot.birth_year)
+        ? profileSnapshot.birth_year
+        : null,
   };
 
   return snapshot satisfies Record<string, unknown>;
@@ -133,7 +134,7 @@ function buildFallbackReasons(left: Participant, right: Participant) {
   return [
     "你们都愿意完整回答当前问卷，并在本周主动加入匹配。",
     "你们都更适合先从低打扰、稳定节奏的交流开始。",
-    `你们分别来自 ${String(left.profileSnapshot.department ?? "校内") } 与 ${String(right.profileSnapshot.department ?? "校内")} 的学习生活背景，具备继续了解的空间。`,
+    `你们分别来自 ${String(left.profileSnapshot.department ?? "校内")} 与 ${String(right.profileSnapshot.department ?? "校内")} 的学习生活背景，具备继续了解的空间。`,
   ];
 }
 

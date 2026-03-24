@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
   }
 
   let response = NextResponse.redirect(
-    new URL("/app/dashboard", env.NEXT_PUBLIC_SITE_URL),
+    new URL("/app", env.NEXT_PUBLIC_SITE_URL),
   );
 
   const supabase = createServerClient<Database>(

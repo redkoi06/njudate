@@ -1,6 +1,13 @@
 import "server-only";
 
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import {
+  type CounterpartSnapshot,
+  getQuestionnaireOverviewStatus,
+  isProfileCompleted,
+  isQuestionnaireCompletedStatus,
+  parseCounterpartSnapshot,
+} from "@/features/app/profile-contract";
 
 export type QuestionOption = {
   id: string;
@@ -49,10 +56,11 @@ export type DashboardData = {
   profileCompleted: boolean;
   questionnaireStatus: QuestionnaireState["status"];
   hasJoinedCurrentBatch: boolean;
+  currentRoundStatus: "not_joined" | "waiting_result" | "result_published";
   currentBatchLabel: string | null;
   currentBatchDeadline: string | null;
-  latestMatchStatus: string | null;
-  unreadNotificationCount: number;
+  currentBatchResultPublishedAt: string | null;
+  questionnaireOverviewStatus: ReturnType<typeof getQuestionnaireOverviewStatus>;
 };
 
 export type ParticipationState = {
@@ -77,7 +85,7 @@ export type MatchRecord = {
 export type MatchDetail = MatchRecord & {
   reasons: string[];
   sharedSignals: string[];
-  counterpartSnapshot: Record<string, unknown> | null;
+  counterpartSnapshot: CounterpartSnapshot | null;
   contactStatus: "idle" | "confirming" | "triggered" | "failed" | "completed" | null;
   contactInfo: { nickname: string; email: string } | null;
   matchPairId: string | null;
@@ -102,14 +110,11 @@ export type AnnouncementItem = {
 export type ProfileData = {
   id: string;
   nickname: string;
-  department: string;
-  major: string;
-  grade: string;
   gender: string;
-  targetPreference: string;
-  bio: string;
-  interests: string[];
-  showNickname: boolean;
+  grade: string;
+  department: string;
+  campus: string;
+  birthYear: number | null;
   accountStatus: "active" | "restricted" | "delete_requested" | "deleted";
 };
 
@@ -198,17 +203,6 @@ function parseContactInfo(
   };
 }
 
-function isProfileCompleted(profile: ProfileData) {
-  return Boolean(
-    profile.nickname &&
-      profile.department &&
-      profile.major &&
-      profile.grade &&
-      profile.gender &&
-      profile.targetPreference,
-  );
-}
-
 export async function getAnnouncements() {
   const supabase = await createServerSupabaseClient();
   const now = new Date().toISOString();
@@ -231,9 +225,7 @@ export async function getCurrentProfile(userId: string) {
   const supabase = await createServerSupabaseClient();
   const { data, error } = await supabase
     .from("app_users")
-    .select(
-      "id, nickname, department, major, grade, gender, target_preference, bio, interests, show_nickname, account_status",
-    )
+    .select("id, nickname, gender, grade, department, campus, birth_year, account_status")
     .eq("id", userId)
     .single();
 
@@ -244,14 +236,11 @@ export async function getCurrentProfile(userId: string) {
   return {
     id: data.id,
     nickname: data.nickname ?? "",
-    department: data.department ?? "",
-    major: data.major ?? "",
-    grade: data.grade ?? "",
     gender: data.gender ?? "",
-    targetPreference: data.target_preference ?? "",
-    bio: data.bio ?? "",
-    interests: data.interests ?? [],
-    showNickname: data.show_nickname,
+    grade: data.grade ?? "",
+    department: data.department ?? "",
+    campus: data.campus ?? "",
+    birthYear: data.birth_year,
     accountStatus: data.account_status,
   } satisfies ProfileData;
 }
@@ -411,7 +400,7 @@ export async function getParticipationState(userId: string) {
   }
 
   const questionnaire = await getQuestionnaireState(userId);
-  if (!["submitted", "updated"].includes(questionnaire.status)) {
+  if (!isQuestionnaireCompletedStatus(questionnaire.status)) {
     return {
       batchId: batch.id,
       label: batch.label,
@@ -584,12 +573,7 @@ export async function getMatchDetail(userId: string, matchId: string) {
     releasedAt: record.released_at,
     reasons: record.reasons ?? [],
     sharedSignals: record.shared_signals ?? [],
-    counterpartSnapshot:
-      record.counterpart_snapshot_json &&
-      typeof record.counterpart_snapshot_json === "object" &&
-      !Array.isArray(record.counterpart_snapshot_json)
-        ? (record.counterpart_snapshot_json as Record<string, unknown>)
-        : null,
+    counterpartSnapshot: parseCounterpartSnapshot(record.counterpart_snapshot_json),
     contactStatus,
     contactInfo,
     matchPairId: record.match_pair_id,
@@ -597,23 +581,73 @@ export async function getMatchDetail(userId: string, matchId: string) {
 }
 
 export async function getDashboardData(userId: string) {
-  const [profile, questionnaire, participation, notifications, records] =
-    await Promise.all([
-      getCurrentProfile(userId),
-      getQuestionnaireState(userId),
-      getParticipationState(userId),
-      getNotifications(userId),
-      getMatchRecords(userId),
+  const supabase = await createServerSupabaseClient();
+  const [profile, questionnaire, currentBatchResult] = await Promise.all([
+    getCurrentProfile(userId),
+    getQuestionnaireState(userId),
+    supabase
+      .from("match_batches")
+      .select("id, label, signup_end_at, result_publish_at, status")
+      .in("status", ["open", "locked", "processing", "published"])
+      .order("signup_end_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
+  if (currentBatchResult.error) {
+    throw currentBatchResult.error;
+  }
+
+  const currentBatch = currentBatchResult.data;
+  let hasJoinedCurrentBatch = false;
+  let currentRoundStatus: DashboardData["currentRoundStatus"] = "not_joined";
+
+  if (currentBatch) {
+    const [participationResult, matchResult] = await Promise.all([
+      supabase
+        .from("batch_participations")
+        .select("status")
+        .eq("batch_id", currentBatch.id)
+        .eq("user_id", userId)
+        .maybeSingle(),
+      supabase
+        .from("match_results")
+        .select("released_at")
+        .eq("batch_id", currentBatch.id)
+        .eq("user_id", userId)
+        .maybeSingle(),
     ]);
+
+    if (participationResult.error) {
+      throw participationResult.error;
+    }
+
+    if (matchResult.error) {
+      throw matchResult.error;
+    }
+
+    hasJoinedCurrentBatch =
+      participationResult.data?.status === "joined" ||
+      participationResult.data?.status === "locked";
+
+    if (hasJoinedCurrentBatch) {
+      currentRoundStatus =
+        matchResult.data?.released_at || currentBatch.status === "published"
+          ? "result_published"
+          : "waiting_result";
+    }
+  }
 
   return {
     profileCompleted: isProfileCompleted(profile),
     questionnaireStatus: questionnaire.status,
-    hasJoinedCurrentBatch:
-      participation.status === "joined" || participation.status === "locked",
-    currentBatchLabel: participation.label,
-    currentBatchDeadline: participation.signupEndAt,
-    latestMatchStatus: records[0]?.status ?? null,
-    unreadNotificationCount: notifications.filter((item) => !item.isRead).length,
+    hasJoinedCurrentBatch,
+    currentRoundStatus,
+    currentBatchLabel: currentBatch?.label ?? null,
+    currentBatchDeadline: currentBatch?.signup_end_at ?? null,
+    currentBatchResultPublishedAt: currentBatch?.result_publish_at ?? null,
+    questionnaireOverviewStatus: getQuestionnaireOverviewStatus(
+      questionnaire.status,
+    ),
   } satisfies DashboardData;
 }

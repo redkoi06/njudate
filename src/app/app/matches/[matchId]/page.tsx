@@ -6,6 +6,7 @@ import {
   triggerMatchContactAction,
 } from "@/features/app/actions";
 import { getMatchDetail } from "@/features/app/data";
+import { PROFILE_SUMMARY_FIELDS } from "@/features/app/profile-contract";
 import { requireSessionUser } from "@/lib/auth/session";
 import {
   formatDateTime,
@@ -75,9 +76,27 @@ export default async function MatchDetailPage({
       {detail.counterpartSnapshot ? (
         <SurfaceCard>
           <h2 className="text-2xl">对方信息摘要</h2>
-          <pre className="bg-muted mt-5 overflow-x-auto rounded-2xl p-4 text-xs leading-6">
-            {JSON.stringify(detail.counterpartSnapshot, null, 2)}
-          </pre>
+          <div className="mt-5 grid gap-3 md:grid-cols-2">
+            {PROFILE_SUMMARY_FIELDS.map((field) => {
+              const value = detail.counterpartSnapshot?.[field.key];
+
+              if (value === null || value === undefined || value === "") {
+                return null;
+              }
+
+              return (
+                <div
+                  key={field.key}
+                  className="border-border rounded-2xl border p-4 text-sm"
+                >
+                  <p className="text-muted-foreground text-xs tracking-[0.2em]">
+                    {field.label}
+                  </p>
+                  <p className="mt-3 text-base">{String(value)}</p>
+                </div>
+              );
+            })}
+          </div>
         </SurfaceCard>
       ) : null}
 

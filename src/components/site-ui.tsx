@@ -1,5 +1,6 @@
 "use client";
 
+import { CircleAlert } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import type {
@@ -25,9 +26,6 @@ export function BrandMark() {
       <div className="min-w-0">
         <p className="text-foreground font-serif text-sm tracking-[0.32em]">
           NJU DATE
-        </p>
-        <p className="text-muted-foreground mt-0.5 text-xs">
-          校内认真匹配平台
         </p>
       </div>
     </div>
@@ -168,6 +166,28 @@ export function Badge({
   );
 }
 
+export function FieldErrorMessage({
+  message,
+}: {
+  message?: string | undefined;
+}) {
+  if (!message) {
+    return null;
+  }
+
+  return (
+    <div
+      role="alert"
+      className="mt-2 flex items-start gap-2 rounded-2xl border border-[color:var(--status-warning)]/25 bg-[color:var(--status-warning-bg)] px-3 py-2.5 text-xs leading-5 text-[color:var(--status-warning)] shadow-[0_12px_24px_rgba(160,122,58,0.12)]"
+    >
+      <span className="mt-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-white/80 text-[color:var(--status-warning)] shadow-[0_4px_12px_rgba(160,122,58,0.16)]">
+        <CircleAlert className="size-3.5" />
+      </span>
+      <span>{message}</span>
+    </div>
+  );
+}
+
 export function Field({
   label,
   hint,
@@ -176,8 +196,8 @@ export function Field({
   ...props
 }: InputHTMLAttributes<HTMLInputElement> & {
   label: string;
-  hint?: string;
-  error?: string;
+  hint?: string | undefined;
+  error?: string | undefined;
 }) {
   return (
     <label className="block">
@@ -194,16 +214,10 @@ export function Field({
         {...props}
         aria-invalid={error ? true : props["aria-invalid"]}
       />
-      {hint || error ? (
-        <span
-          className={cn(
-            "mt-2 block text-xs leading-6",
-            error
-              ? "text-[color:var(--status-warning)]"
-              : "text-muted-foreground",
-          )}
-        >
-          {error ?? hint}
+      {error ? <FieldErrorMessage message={error} /> : null}
+      {!error && hint ? (
+        <span className="text-muted-foreground mt-2 block text-xs leading-6">
+          {hint}
         </span>
       ) : null}
     </label>
@@ -217,7 +231,7 @@ export function TextArea({
   ...props
 }: TextareaHTMLAttributes<HTMLTextAreaElement> & {
   label: string;
-  hint?: string;
+  hint?: string | undefined;
 }) {
   return (
     <label className="block">
@@ -243,11 +257,15 @@ export function TextArea({
 export function SelectField({
   label,
   children,
+  hint,
+  error,
   className,
   ...props
 }: SelectHTMLAttributes<HTMLSelectElement> & {
   label: string;
   children: ReactNode;
+  hint?: string | undefined;
+  error?: string | undefined;
 }) {
   return (
     <label className="block">
@@ -257,12 +275,21 @@ export function SelectField({
       <select
         className={cn(
           "border-border bg-background text-foreground focus:border-primary focus:ring-primary/15 w-full rounded-2xl border px-4 py-3 text-sm transition outline-none focus:ring-2",
+          error &&
+            "border-[color:var(--status-warning)] focus:border-[color:var(--status-warning)] focus:ring-[color:var(--status-warning)]/15",
           className,
         )}
         {...props}
+        aria-invalid={error ? true : props["aria-invalid"]}
       >
         {children}
       </select>
+      {error ? <FieldErrorMessage message={error} /> : null}
+      {!error && hint ? (
+        <span className="text-muted-foreground mt-2 block text-xs leading-6">
+          {hint}
+        </span>
+      ) : null}
     </label>
   );
 }

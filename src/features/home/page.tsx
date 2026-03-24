@@ -183,11 +183,7 @@ function StatCard({
 export default async function HomePage() {
   const user = await getOptionalSessionUser();
   const homeData = await getHomePageData(Boolean(user));
-  const steps = buildHomeSteps({
-    currentBatchLabel: homeData.currentBatchLabel,
-    signupDeadlineLabel: homeData.signupDeadlineLabel,
-    nextMatchTimeLabel: homeData.nextMatchTimeLabel,
-  });
+  const steps = buildHomeSteps();
 
   return (
     <HomeShell

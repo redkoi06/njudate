@@ -1,5 +1,8 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
 import brandMark from "../../icon/icon.png";
@@ -14,6 +17,10 @@ const PUBLIC_INFO_NAV_ITEMS = [
   { href: "/privacy", label: "隐私协议" },
   { href: "/contact", label: "联系我们" },
 ] as const;
+
+function isActiveAppNavItem(pathname: string, href: string) {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
 
 function MarketingBrandMark({
   compact = false,
@@ -53,7 +60,7 @@ export function PublicShell({
 }) {
   const authAction = signedIn ? (
     <Link
-      href="/app/dashboard"
+      href="/app"
       className="btn btn-primary inline-flex items-center justify-center px-4 py-2.5 text-sm"
     >
       进入站内
@@ -161,6 +168,8 @@ export function AppShell({
   children: ReactNode;
   email: string;
 }) {
+  const pathname = usePathname();
+
   return (
     <div className="min-h-screen">
       <header className="border-border/80 sticky top-0 z-30 border-b bg-[rgba(250,247,244,0.9)] backdrop-blur">
@@ -171,9 +180,19 @@ export function AppShell({
             </Link>
             <Badge>{email}</Badge>
           </div>
-          <nav className="flex flex-wrap items-center gap-3 text-sm">
+          <nav className="flex flex-wrap items-center gap-2 rounded-[999px] border border-border/70 bg-card/80 p-1.5 shadow-[0_16px_34px_rgba(31,24,24,0.06)] backdrop-blur">
             {USER_NAV_ITEMS.map((item) => (
-              <Link key={item.href} href={item.href} className="top-nav-link">
+              <Link
+                key={item.href}
+                href={item.href}
+                aria-current={isActiveAppNavItem(pathname, item.href) ? "page" : undefined}
+                className={cn(
+                  "inline-flex items-center justify-center rounded-full px-4 py-2 text-sm transition",
+                  isActiveAppNavItem(pathname, item.href)
+                    ? "bg-primary text-primary-foreground shadow-[0_12px_24px_rgba(139,74,82,0.18)]"
+                    : "text-secondary-foreground hover:bg-secondary/80 hover:text-foreground",
+                )}
+              >
                 {item.label}
               </Link>
             ))}

@@ -185,7 +185,7 @@ export async function getHomePageData(signedIn: boolean) {
 
   return {
     signedIn,
-    primaryHref: signedIn ? "/app/dashboard" : "/login",
+    primaryHref: signedIn ? "/app" : "/login",
     primaryLabel: signedIn ? "进入站内" : "立即开始",
     currentBatchParticipants: participantsResult.count ?? 0,
     currentBatchLabel: currentBatch?.label ?? null,

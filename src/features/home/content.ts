@@ -13,12 +13,6 @@ export type HomeFaqItem = {
   answer: string;
 };
 
-export type BuildHomeStepsInput = {
-  currentBatchLabel: string | null;
-  signupDeadlineLabel: string;
-  nextMatchTimeLabel: string;
-};
-
 export const HOME_PLACEHOLDER_PHOTO = "/images/photos/photo_1.jpg";
 
 export const HOME_FEATURES: HomeFeature[] = [
@@ -91,11 +85,7 @@ export const HOME_FAQ: HomeFaqItem[] = [
   },
 ];
 
-export function buildHomeSteps({
-  currentBatchLabel,
-  signupDeadlineLabel,
-  nextMatchTimeLabel,
-}: BuildHomeStepsInput) {
+export function buildHomeSteps() {
   return [
     {
       number: "01",

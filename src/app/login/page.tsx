@@ -23,7 +23,7 @@ export default async function LoginPage({
   ]);
 
   if (user) {
-    redirect("/app/dashboard");
+    redirect("/app");
   }
 
   const email =

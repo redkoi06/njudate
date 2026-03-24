@@ -6,6 +6,14 @@ import { z } from "zod";
 
 import { getQuestionnaireState } from "@/features/app/data";
 import {
+  PROFILE_CAMPUS_OPTIONS,
+  PROFILE_DEPARTMENT_OPTIONS,
+  PROFILE_GENDER_OPTIONS,
+  PROFILE_GRADE_OPTIONS,
+  getBirthYearRange,
+  normalizeDepartmentForGrade,
+} from "@/features/app/profile-contract";
+import {
   getAuthErrorMessage,
   signInSchema,
   signUpSchema,
@@ -15,17 +23,34 @@ import { getPublicEnv } from "@/lib/env/client";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
-const profileSchema = z.object({
-  nickname: z.string().trim().min(1, "请填写昵称"),
-  department: z.string().trim().min(1, "请填写院系"),
-  major: z.string().trim().min(1, "请填写专业"),
-  grade: z.string().trim().min(1, "请填写年级"),
-  gender: z.string().trim().min(1, "请填写性别"),
-  targetPreference: z.string().trim().min(1, "请填写匹配期待"),
-  bio: z.string().trim().max(300, "自我介绍不能超过 300 字").optional(),
-  interests: z.string().trim().optional(),
-  showNickname: z.boolean(),
-});
+function buildProfileSchema() {
+  const { minBirthYear, maxBirthYear } = getBirthYearRange();
+
+  return z.object({
+    nickname: z.string().trim().min(1, "请填写昵称"),
+    gender: z.enum(PROFILE_GENDER_OPTIONS, {
+      error: "请选择性别",
+    }),
+    grade: z.enum(PROFILE_GRADE_OPTIONS, {
+      error: "请选择年级",
+    }),
+    department: z.enum(PROFILE_DEPARTMENT_OPTIONS, {
+      error: "请选择院系",
+    }),
+    campus: z.enum(PROFILE_CAMPUS_OPTIONS, {
+      error: "请选择所在校区",
+    }),
+    birthYear: z
+      .string()
+      .trim()
+      .regex(/^\d{4}$/, "出生年份必须是四位数字")
+      .transform((value) => Number(value))
+      .refine(
+        (value) => value >= minBirthYear && value <= maxBirthYear,
+        `出生年份必须在 ${minBirthYear} 到 ${maxBirthYear} 之间`,
+      ),
+  });
+}
 
 const settingsSchema = z.object({
   notifyMatchResult: z.boolean(),
@@ -93,14 +118,6 @@ async function requireAuthenticatedClient() {
   }
 
   return { supabase, user };
-}
-
-function parseInterests(raw: string) {
-  return raw
-    .split(/[\n,，、]+/)
-    .map((item) => item.trim())
-    .filter(Boolean)
-    .slice(0, 8);
 }
 
 async function parseQuestionnaireAnswers(formData: FormData, userId: string) {
@@ -397,7 +414,7 @@ export async function signInWithPasswordAction(formData: FormData) {
     });
   }
 
-  redirect("/app/dashboard");
+  redirect("/app");
 }
 
 export async function signOutAction() {
@@ -408,30 +425,28 @@ export async function signOutAction() {
 
 export async function saveProfileAction(formData: FormData) {
   const { supabase, user } = await requireAuthenticatedClient();
-  const payload = profileSchema.parse({
+  const payload = buildProfileSchema().parse({
     nickname: stringField(formData, "nickname"),
-    department: stringField(formData, "department"),
-    major: stringField(formData, "major"),
-    grade: stringField(formData, "grade"),
     gender: stringField(formData, "gender"),
-    targetPreference: stringField(formData, "targetPreference"),
-    bio: stringField(formData, "bio"),
-    interests: stringField(formData, "interests"),
-    showNickname: boolField(formData, "showNickname"),
+    grade: stringField(formData, "grade"),
+    department: stringField(formData, "department"),
+    campus: stringField(formData, "campus"),
+    birthYear: stringField(formData, "birthYear"),
   });
+  const department = normalizeDepartmentForGrade(
+    payload.grade,
+    payload.department,
+  );
 
   const { error } = await supabase
     .from("app_users")
     .update({
       nickname: payload.nickname,
-      department: payload.department,
-      major: payload.major,
-      grade: payload.grade,
       gender: payload.gender,
-      target_preference: payload.targetPreference,
-      bio: payload.bio || null,
-      interests: parseInterests(payload.interests ?? ""),
-      show_nickname: payload.showNickname,
+      grade: payload.grade,
+      department,
+      campus: payload.campus,
+      birth_year: payload.birthYear,
     })
     .eq("id", user.id);
 
@@ -440,8 +455,9 @@ export async function saveProfileAction(formData: FormData) {
   }
 
   revalidatePath("/app/profile");
+  revalidatePath("/app");
   revalidatePath("/app/dashboard");
-  redirect("/app/profile");
+  redirect("/app");
 }
 
 export async function saveQuestionnaireDraftAction(formData: FormData) {
@@ -457,6 +473,7 @@ export async function saveQuestionnaireDraftAction(formData: FormData) {
   }
 
   revalidatePath("/app/questionnaire");
+  revalidatePath("/app");
   revalidatePath("/app/dashboard");
   redirect("/app/questionnaire");
 }
@@ -474,9 +491,10 @@ export async function submitQuestionnaireAction(formData: FormData) {
   }
 
   revalidatePath("/app/questionnaire");
+  revalidatePath("/app");
   revalidatePath("/app/dashboard");
   revalidatePath("/app/participation");
-  redirect("/app/questionnaire");
+  redirect("/app");
 }
 
 export async function joinCurrentBatchAction() {

@@ -56,22 +56,19 @@ export interface Database {
         Row: {
           account_status: "active" | "restricted" | "delete_requested" | "deleted";
           account_status_reason: string | null;
-          bio: string | null;
+          birth_year: number | null;
+          campus: string | null;
           created_at: Timestamp;
           deleted_at: Timestamp | null;
           department: string | null;
           gender: string | null;
           grade: string | null;
           id: UUID;
-          interests: string[];
-          major: string | null;
           nickname: string | null;
           notify_match_result: boolean;
           notify_platform_digest: boolean;
           notify_weekly_reminder: boolean;
           role: "user" | "admin";
-          show_nickname: boolean;
-          target_preference: string | null;
           updated_at: Timestamp;
         };
         Insert: Partial<Database["public"]["Tables"]["app_users"]["Row"]> & {

@@ -13,7 +13,7 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
     "coverage/**",
-    "UI_demo/**",
+    "trash/**",
     "bootstrap-app/**",
     "supabase/**",
   ]),
