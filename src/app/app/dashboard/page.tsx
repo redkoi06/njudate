@@ -6,10 +6,6 @@ import {
   getNotifications,
 } from "@/features/app/data";
 import { requireAppUser } from "@/lib/auth/session";
-import {
-  formatDateTime,
-  getCurrentRoundStatusLabel,
-} from "@/lib/site";
 
 export default async function DashboardPage() {
   const user = await requireAppUser();
@@ -25,7 +21,7 @@ export default async function DashboardPage() {
         <SectionHeader
           eyebrow="用户主页"
           title="当前状态总览"
-          description="这里汇总资料、问卷、当前轮次、通知与公告，帮助你快速判断下一步要做什么。"
+          description="这里汇总资料、问卷、参与状态、通知与公告，帮助你快速判断下一步要做什么。"
         />
         <div className="mt-8 grid gap-4 md:grid-cols-3">
           {[
@@ -43,95 +39,72 @@ export default async function DashboardPage() {
               value: dashboard.hasJoinedCurrentBatch ? "已报名" : "未参与",
             },
           ].map((item) => (
-                <div key={item.label} className="border-border rounded-2xl border p-4">
-                  <p className="text-muted-foreground text-xs tracking-[0.2em]">
-                    {item.label}
-                  </p>
-                  <p className="mt-3 text-xl">{item.value}</p>
-                  {"hint" in item && item.hint ? (
-                    <p className="text-secondary-foreground/80 mt-3 text-sm leading-7">
-                      {item.hint}
-                    </p>
-                  ) : null}
-                </div>
-              ))}
+            <div
+              key={item.label}
+              className="border-border rounded-2xl border p-4"
+            >
+              <p className="text-muted-foreground text-xs tracking-[0.2em]">
+                {item.label}
+              </p>
+              <p className="mt-3 text-xl">{item.value}</p>
+              {"hint" in item && item.hint ? (
+                <p className="text-secondary-foreground/80 mt-3 text-sm leading-7">
+                  {item.hint}
+                </p>
+              ) : null}
+            </div>
+          ))}
         </div>
       </SurfaceCard>
 
-      <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-        <SurfaceCard>
-          <h2 className="text-2xl">当前轮次</h2>
-          {dashboard.questionnaireWindowStatus === "closed" ? (
-            <p className="mt-4 rounded-2xl border border-[color:var(--status-warning)]/20 bg-[color:var(--status-warning-bg)] px-4 py-3 text-sm leading-7 text-[color:var(--status-warning)]">
-              当前轮报名已经截止，结果公布前问卷通道保持关闭。
-            </p>
-          ) : null}
-          <p className="text-secondary-foreground/80 mt-3 text-sm leading-7">
-            当前状态：{getCurrentRoundStatusLabel(dashboard.currentRoundStatus)}。
-          </p>
-          <p className="text-secondary-foreground/80 mt-3 text-sm leading-7">
-            {dashboard.currentRoundStatus === "not_joined"
-              ? dashboard.currentBatchLabel
-                ? `${dashboard.currentBatchLabel} 已进入当前轮次，你本轮未参与。`
-                : "当前还没有可展示的轮次信息。"
-              : dashboard.currentRoundStatus === "waiting_result"
-                ? `${dashboard.currentBatchLabel ?? "当前轮次"} 已报名，请等待公布结果。`
-                : `${dashboard.currentBatchLabel ?? "当前轮次"} 的结果已公布，可前往匹配记录查看。`}
-          </p>
-          {dashboard.currentRoundStatus !== "result_published" &&
-          dashboard.currentBatchDeadline ? (
-            <p className="text-secondary-foreground/80 mt-3 text-sm leading-7">
-              报名截止时间：{formatDateTime(dashboard.currentBatchDeadline)}。
-            </p>
-          ) : null}
-          {dashboard.currentRoundStatus === "result_published" &&
-          dashboard.currentBatchResultPublishedAt ? (
-            <p className="text-secondary-foreground/80 mt-3 text-sm leading-7">
-              结果公布时间：
-              {formatDateTime(dashboard.currentBatchResultPublishedAt)}。
-            </p>
-          ) : null}
-        </SurfaceCard>
-
-        <SurfaceCard>
-          <h2 className="text-2xl">最近通知</h2>
-          <div className="mt-5 grid gap-4">
-            {notifications.length > 0 ? (
-              notifications.map((item) => (
-                <div key={item.id} className="border-border rounded-2xl border p-4">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm">{item.title}</p>
-                      <p className="text-secondary-foreground/80 mt-2 text-sm leading-7">
-                        {item.body}
-                      </p>
-                    </div>
-                    {!item.isRead ? (
-                      <form action={markNotificationReadAction}>
-                        <input type="hidden" name="notificationId" value={item.id} />
-                        <Button size="sm" tone="soft" type="submit">
-                          标记已读
-                        </Button>
-                      </form>
-                    ) : null}
+      <SurfaceCard>
+        <h2 className="text-2xl">最近通知</h2>
+        <div className="mt-5 grid gap-4">
+          {notifications.length > 0 ? (
+            notifications.map((item) => (
+              <div
+                key={item.id}
+                className="border-border rounded-2xl border p-4"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm">{item.title}</p>
+                    <p className="text-secondary-foreground/80 mt-2 text-sm leading-7">
+                      {item.body}
+                    </p>
                   </div>
+                  {!item.isRead ? (
+                    <form action={markNotificationReadAction}>
+                      <input
+                        type="hidden"
+                        name="notificationId"
+                        value={item.id}
+                      />
+                      <Button size="sm" tone="soft" type="submit">
+                        标记已读
+                      </Button>
+                    </form>
+                  ) : null}
                 </div>
-              ))
-            ) : (
-              <p className="text-secondary-foreground/80 text-sm leading-7">
-                目前还没有站内通知。
-              </p>
-            )}
-          </div>
-        </SurfaceCard>
-      </div>
+              </div>
+            ))
+          ) : (
+            <p className="text-secondary-foreground/80 text-sm leading-7">
+              目前还没有站内通知。
+            </p>
+          )}
+        </div>
+      </SurfaceCard>
 
       {announcements.length > 0 ? (
         <SurfaceCard>
           <h2 className="text-2xl">平台公告</h2>
           <div className="mt-5 grid gap-4">
             {announcements.map((item) => (
-              <div key={item.id} className="border-border rounded-2xl border p-4">
+              <div
+                key={item.id}
+                className="border-border rounded-2xl border p-4"
+              >
                 <p className="text-muted-foreground text-xs tracking-[0.2em]">
                   {item.eyebrow}
                 </p>

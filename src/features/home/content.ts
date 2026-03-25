@@ -103,7 +103,7 @@ export function buildHomeSteps() {
       number: "03",
       title: "期于旧约，静候锦书而至",
       description:
-        "你会在每周三晚上收到信笺。先以笺识人，再与合适的人相遇。"
+        "你会在约定时间收到信笺。先以笺识人，再与合适的人相遇。"
     },
   ] as const;
 }

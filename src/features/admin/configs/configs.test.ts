@@ -142,7 +142,7 @@ describe("admin configs", () => {
     expect(insertLogMock).toHaveBeenCalledWith(
       expect.objectContaining({
         action_type: "config_updated",
-        entity_id: "match_schedule_text",
+        entity_id: null,
       }),
     );
     expect(revalidatePathMock).toHaveBeenCalledWith("/");
@@ -199,7 +199,7 @@ describe("admin configs", () => {
     expect(insertLogMock).toHaveBeenCalledWith(
       expect.objectContaining({
         action_type: "config_updated",
-        entity_id: "registration_open",
+        entity_id: null,
       }),
     );
     expect(revalidatePathMock).toHaveBeenCalledWith("/admin/configs");

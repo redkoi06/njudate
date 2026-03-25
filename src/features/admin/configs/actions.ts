@@ -49,7 +49,7 @@ async function logConfigOperation(input: {
     actor_user_id: input.actorUserId,
     action_type: "config_updated",
     entity_type: "app_config",
-    entity_id: input.configKey,
+    entity_id: null,
     payload_json: input.payloadJson ?? null,
   });
 

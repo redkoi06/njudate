@@ -1,12 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const {
-  createServerSupabaseClientMock,
-  getEffectiveQuestionnaireContextMock,
-} = vi.hoisted(() => ({
-  createServerSupabaseClientMock: vi.fn(),
-  getEffectiveQuestionnaireContextMock: vi.fn(),
-}));
+const { createServerSupabaseClientMock, getEffectiveQuestionnaireContextMock } =
+  vi.hoisted(() => ({
+    createServerSupabaseClientMock: vi.fn(),
+    getEffectiveQuestionnaireContextMock: vi.fn(),
+  }));
 
 vi.mock("server-only", () => ({}));
 
@@ -33,7 +31,7 @@ describe("getDashboardData", () => {
     getEffectiveQuestionnaireContextMock.mockReset();
   });
 
-  it("does not fall back to a historical batch when there is no current round", async () => {
+  it("returns no participation when there is no current round", async () => {
     getEffectiveQuestionnaireContextMock.mockResolvedValue({
       batchId: null,
       batchStatus: null,
@@ -120,9 +118,6 @@ describe("getDashboardData", () => {
 
     const dashboard = await getDashboardData("user-1");
 
-    expect(dashboard.currentBatchLabel).toBeNull();
-    expect(dashboard.currentBatchDeadline).toBeNull();
-    expect(dashboard.currentBatchResultPublishedAt).toBeNull();
-    expect(dashboard.currentRoundStatus).toBe("not_joined");
+    expect(dashboard.hasJoinedCurrentBatch).toBe(false);
   });
 });

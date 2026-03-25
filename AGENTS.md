@@ -4,8 +4,6 @@
 
 ## 代码规范
 
-当你需要编写任何TypeScript代码时，强制使用
-typescript-project-specifications skill
 
 ## 方案规范
 

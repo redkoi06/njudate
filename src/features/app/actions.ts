@@ -595,7 +595,9 @@ export async function saveQuestionnaireDraftAction(formData: FormData) {
   revalidatePath("/app/questionnaire");
   revalidatePath("/app");
   revalidatePath("/app/dashboard");
-  redirect("/app/questionnaire");
+  redirectWithSearchParams("/app/questionnaire", {
+    draftSaved: true,
+  });
 }
 
 export async function submitQuestionnaireAction(formData: FormData) {
@@ -614,7 +616,9 @@ export async function submitQuestionnaireAction(formData: FormData) {
   revalidatePath("/app");
   revalidatePath("/app/dashboard");
   revalidatePath("/app/participation");
-  redirect("/app");
+  redirectWithSearchParams("/app/questionnaire", {
+    questionnaireSubmitted: true,
+  });
 }
 
 export async function joinCurrentBatchAction() {

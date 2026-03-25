@@ -1,4 +1,4 @@
-import { Badge, ButtonLink, SectionHeader, SurfaceCard } from "@/components/site-ui";
+import { Badge, SectionHeader, SurfaceCard } from "@/components/site-ui";
 import { getAdminDashboardData } from "@/features/admin/data";
 import { formatDateTime } from "@/lib/site";
 
@@ -32,23 +32,6 @@ export default async function AdminPage() {
           eyebrow="后台总览"
           title="平台运营主看板"
           description="这里汇总当前问卷、当前批次、最近一次跑批和近期操作日志，帮助你快速判断平台是否处于正常运营状态。"
-          action={
-            <div className="flex flex-wrap gap-3">
-              <ButtonLink href="/admin/announcements" tone="soft">
-                公告后台
-              </ButtonLink>
-              <ButtonLink href="/admin/configs" tone="soft">
-                平台配置
-              </ButtonLink>
-              <ButtonLink href="/admin/users" tone="soft">
-                用户管理
-              </ButtonLink>
-              <ButtonLink href="/admin/questionnaires" tone="soft">
-                问卷版本
-              </ButtonLink>
-              <ButtonLink href="/admin/batches">批次运营</ButtonLink>
-            </div>
-          }
         />
         <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <MetricCard

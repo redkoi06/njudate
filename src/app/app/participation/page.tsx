@@ -15,11 +15,11 @@ export default async function ParticipationPage() {
     <SurfaceCard>
       <SectionHeader
         eyebrow="本周参与"
-        title={participation.label ?? "当前没有开放批次"}
+        title={participation.label?.replace("匹配批次", "匹配轮次") ?? "当前没有开放批次"}
         description={
           participation.label
-            ? `报名截止：${formatDateTime(participation.signupEndAt)}，匹配计算：${formatDateTime(participation.matchRunAt)}，结果公布：${formatDateTime(participation.resultPublishAt)}。`
-            : "当新的匹配批次开放后，你可以在这里决定本周是否加入。"
+            ? `报名截止：${formatDateTime(participation.signupEndAt)}，结果公布：${formatDateTime(participation.resultPublishAt)}。`
+            : "当新的匹配轮次开放后，你可以在这里决定本周是否加入。"
         }
       />
       <div className="mt-8 grid gap-4">
@@ -37,13 +37,13 @@ export default async function ParticipationPage() {
         <div className="flex flex-wrap justify-end gap-3">
           {participation.status === "not_joined" ? (
             <form action={joinCurrentBatchAction}>
-              <Button type="submit">加入本周匹配</Button>
+              <Button type="submit">加入本轮匹配</Button>
             </form>
           ) : null}
           {participation.status === "joined" ? (
             <form action={cancelCurrentBatchAction}>
               <Button tone="soft" type="submit">
-                取消本周参与
+                取消本轮参与
               </Button>
             </form>
           ) : null}

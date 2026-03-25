@@ -28,7 +28,18 @@ export function QuestionnaireSections({
             {section.questions.map((question) => (
               <div key={question.id} className="grid gap-3">
                 <div>
-                  <p className="text-sm leading-7">{question.prompt}</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm leading-7">{question.prompt}</p>
+                    <span
+                      className={
+                        question.isRequired
+                          ? "rounded-full border border-[color:var(--status-warning)]/30 bg-[color:var(--status-warning-bg)] px-2 py-0.5 text-[10px] leading-4 text-[color:var(--status-warning)]"
+                          : "text-muted-foreground rounded-full border border-border bg-background px-2 py-0.5 text-[10px] leading-4"
+                      }
+                    >
+                      {question.isRequired ? "必答" : "选答"}
+                    </span>
+                  </div>
                   {question.helperText ? (
                     <p className="text-muted-foreground mt-1 text-xs leading-6">
                       {question.helperText}
@@ -48,6 +59,7 @@ export function QuestionnaireSections({
                           name={question.questionCode}
                           value={option.id}
                           defaultChecked={answers[question.questionCode] === option.id}
+                          required={question.isRequired}
                           disabled={disabled}
                         />
                         {option.label}
@@ -104,6 +116,7 @@ export function QuestionnaireSections({
                             name={question.questionCode}
                             value={value}
                             defaultChecked={answers[question.questionCode] === value}
+                            required={question.isRequired}
                             disabled={disabled}
                           />
                           <span className="ml-2">{value}</span>

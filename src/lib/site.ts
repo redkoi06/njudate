@@ -13,7 +13,7 @@ export const USER_NAV_ITEMS = [
   { href: "/app/dashboard", label: "首页" },
   { href: "/app/profile", label: "基本资料" },
   { href: "/app/questionnaire", label: "深度问卷" },
-  { href: "/app/participation", label: "本周参与" },
+  { href: "/app/participation", label: "本轮报名" },
   { href: "/app/matches", label: "匹配记录" },
   { href: "/app/settings", label: "设置" },
 ] as const;
@@ -78,13 +78,13 @@ export function getQuestionnaireSubmissionStatusLabel(
 ) {
   switch (status) {
     case "not_started":
-      return "当前版本未开始";
+      return "待填写";
     case "draft":
-      return "当前版本草稿未提交";
+      return "草稿待提交";
     case "submitted":
-      return "当前版本已提交";
+      return "已提交";
     case "updated":
-      return "当前版本已提交，另有未提交草稿";
+      return "已提交，另有未提交草稿";
   }
 }
 
@@ -108,18 +108,18 @@ export function getQuestionnaireStatusHint(input: {
   windowStatus: "open" | "closed";
 }) {
   if (input.windowStatus === "closed") {
-    return `当前轮问卷通道已关闭。本轮报名截止于 ${formatDateTime(input.signupEndAt)}，结果公布时间为 ${formatDateTime(input.resultPublishAt)}。结果公布前仅支持查看，不允许保存或提交。`;
+    return `问卷通道已关闭。配对结果将于 ${formatDateTime(input.resultPublishAt)}公布。问卷当前仅支持查看。`;
   }
 
   switch (input.status) {
     case "not_started":
-      return "你还没有开始填写当前生效版本，请先完成正式提交。";
+      return "你还没有开始填写问卷，请先完成后提交。";
     case "draft":
-      return "你已经保存了当前版本草稿，但还没有正式提交。";
+      return "你已经保存了草稿，但还没有正式提交。";
     case "submitted":
-      return "你已经正式提交当前版本，当前状态为已填写。";
+      return "你已经正式提交问卷，可以参与活动啦。";
     case "updated":
-      return "你已经提交过当前版本，当前草稿尚未再次正式提交；系统仍以最近一次正式提交作为有效答案。";
+      return "你已经提交过问卷，当前草稿尚未正式提交；系统仍以最近一次正式提交作为有效答案。";
   }
 }
 
@@ -133,13 +133,13 @@ export function getQuestionnaireParticipationRequirement(input: {
 
   switch (input.status) {
     case "not_started":
-      return "当前版本未开始，请先正式提交当前问卷。";
+      return "问卷未填写，请先正式提交问卷。";
     case "draft":
-      return "当前版本草稿未提交，请先正式提交当前问卷。";
+      return "问卷草稿未提交，请先正式提交问卷。";
     case "submitted":
-      return "当前版本已提交。";
+      return "你已经正式提交问卷，可以参与活动啦。";
     case "updated":
-      return "当前版本已提交，另有未提交草稿。";
+      return "问卷已提交，另有未提交草稿。";
   }
 }
 
@@ -165,7 +165,7 @@ export function getParticipationStatusLabel(
     case "joined":
       return "已报名";
     case "locked":
-      return "已锁定";
+      return "已报名";
     case "unavailable":
       return "暂不可报名";
   }

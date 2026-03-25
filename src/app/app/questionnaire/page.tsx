@@ -1,15 +1,12 @@
-import { Badge, Button, SectionHeader, SurfaceCard } from "@/components/site-ui";
+import { Badge, SectionHeader, SurfaceCard } from "@/components/site-ui";
 import {
   saveQuestionnaireDraftAction,
   submitQuestionnaireAction,
 } from "@/features/app/actions";
 import { getQuestionnaireState } from "@/features/app/data";
-import { QuestionnaireSections } from "@/features/app/questionnaire-sections";
+import { QuestionnaireForm } from "@/features/app/questionnaire-form";
 import { requireAppUser } from "@/lib/auth/session";
-import {
-  getQuestionnaireStatusHint,
-  getQuestionnaireSubmissionStatusLabel,
-} from "@/lib/site";
+import { getQuestionnaireStatusHint } from "@/lib/site";
 
 function getQuestionnaireBadgeLabel(input: {
   status: "not_started" | "draft" | "submitted" | "updated";
@@ -31,15 +28,27 @@ function getQuestionnaireBadgeLabel(input: {
   }
 }
 
-export default async function QuestionnairePage() {
+export default async function QuestionnairePage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const resolvedSearchParams = await searchParams;
   const user = await requireAppUser();
   const questionnaire = await getQuestionnaireState(user.id);
   const isClosed = questionnaire.windowStatus === "closed";
+  const draftSaved = resolvedSearchParams?.draftSaved === "1";
+  const questionnaireSubmitted =
+    resolvedSearchParams?.questionnaireSubmitted === "1";
+  const successMessage = questionnaireSubmitted
+    ? "问卷已正式提交。"
+    : draftSaved
+      ? "草稿已保存。"
+      : null;
 
   return (
     <SurfaceCard>
       <SectionHeader
-        eyebrow={`问卷版本 ${questionnaire.versionNo}`}
         title={questionnaire.title}
         description={questionnaire.description}
         action={
@@ -68,28 +77,18 @@ export default async function QuestionnairePage() {
           windowStatus: questionnaire.windowStatus,
         })}
       </div>
-      {!isClosed ? (
-        <p className="text-secondary-foreground/80 mt-4 text-sm leading-7">
-          当前状态：{getQuestionnaireSubmissionStatusLabel(questionnaire.status)}。
-        </p>
+      {successMessage ? (
+        <div className="mt-4 rounded-2xl border border-[color:var(--status-success)]/20 bg-[color:var(--status-success-bg)] px-4 py-3 text-sm text-[color:var(--status-success)]">
+          {successMessage}
+        </div>
       ) : null}
-      <form className="mt-8 grid gap-8">
-        <QuestionnaireSections
-          answers={questionnaire.answers}
-          sections={questionnaire.sections}
-          disabled={isClosed}
-        />
-        {!isClosed ? (
-          <div className="flex flex-wrap justify-end gap-3">
-            <Button formAction={saveQuestionnaireDraftAction} tone="soft" type="submit">
-              保存草稿
-            </Button>
-            <Button formAction={submitQuestionnaireAction} type="submit">
-              正式提交问卷
-            </Button>
-          </div>
-        ) : null}
-      </form>
+      <QuestionnaireForm
+        answers={questionnaire.answers}
+        sections={questionnaire.sections}
+        disabled={isClosed}
+        saveDraftAction={saveQuestionnaireDraftAction}
+        submitAction={submitQuestionnaireAction}
+      />
     </SurfaceCard>
   );
 }

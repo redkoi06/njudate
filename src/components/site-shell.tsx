@@ -7,6 +7,7 @@ import type { ReactNode } from "react";
 
 import brandMark from "../../icon/icon.png";
 import { signOutAction } from "@/features/app/actions";
+import { isAuthenticatedNavItemActive } from "@/lib/navigation";
 import { ADMIN_NAV_ITEMS, BRAND_NAME, USER_NAV_ITEMS } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
@@ -17,10 +18,6 @@ const PUBLIC_INFO_NAV_ITEMS = [
   { href: "/privacy", label: "隐私协议" },
   { href: "/contact", label: "联系我们" },
 ] as const;
-
-function isActiveAppNavItem(pathname: string, href: string) {
-  return pathname === href || pathname.startsWith(`${href}/`);
-}
 
 function AuthenticatedShellBase({
   children,
@@ -50,10 +47,12 @@ function AuthenticatedShellBase({
               <Link
                 key={item.href}
                 href={item.href}
-                aria-current={isActiveAppNavItem(pathname, item.href) ? "page" : undefined}
+                aria-current={
+                  isAuthenticatedNavItemActive(pathname, item.href) ? "page" : undefined
+                }
                 className={cn(
                   "inline-flex items-center justify-center rounded-full px-4 py-2 text-sm transition",
-                  isActiveAppNavItem(pathname, item.href)
+                  isAuthenticatedNavItemActive(pathname, item.href)
                     ? "bg-primary text-primary-foreground shadow-[0_12px_24px_rgba(139,74,82,0.18)]"
                     : "text-secondary-foreground hover:bg-secondary/80 hover:text-foreground",
                 )}

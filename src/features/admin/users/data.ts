@@ -7,6 +7,7 @@ import {
 } from "@/features/app/questionnaire-runtime";
 import { getQuestionnaireSubmissionStatusLabel } from "@/lib/site";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
+import type { Database } from "@/types/database.generated";
 
 export type AdminUserListItem = {
   accountStatus: "active" | "restricted" | "deleted";
@@ -37,12 +38,31 @@ export type AdminUsersPageData = {
   totalPages: number;
 };
 
+type AppUserRow = Pick<
+  Database["public"]["Tables"]["app_users"]["Row"],
+  | "account_status"
+  | "birth_year"
+  | "campus"
+  | "created_at"
+  | "deleted_at"
+  | "department"
+  | "gender"
+  | "grade"
+  | "id"
+  | "nickname"
+  | "role"
+>;
+
 type ParticipationRow = {
   batch_id: string;
   status: "joined" | "cancelled" | "locked";
   updated_at: string;
   user_id: string;
 };
+
+const ADMIN_USER_COLUMNS =
+  "id, role, account_status, nickname, gender, grade, department, campus, birth_year, deleted_at, created_at";
+const AUTH_USER_SEARCH_PAGE_SIZE = 500;
 
 export function getRecentParticipationStatusLabel(
   status: AdminUserListItem["recentParticipationStatus"],
@@ -59,33 +79,117 @@ export function getRecentParticipationStatusLabel(
   }
 }
 
-export async function listAdminUsers(page: number, pageSize = 50) {
+async function findAuthUserIdsByKeyword(
+  admin: ReturnType<typeof createAdminSupabaseClient>,
+  keyword: string,
+) {
+  const normalizedKeyword = keyword.trim().toLowerCase();
+
+  if (!normalizedKeyword) {
+    return [];
+  }
+
+  const matchedUserIds = new Set<string>();
+
+  for (let page = 1; ; page += 1) {
+    const { data, error } = await admin.auth.admin.listUsers({
+      page,
+      perPage: AUTH_USER_SEARCH_PAGE_SIZE,
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    for (const user of data.users) {
+      if (user.email?.toLowerCase().includes(normalizedKeyword)) {
+        matchedUserIds.add(user.id);
+      }
+    }
+
+    if (data.users.length < AUTH_USER_SEARCH_PAGE_SIZE) {
+      return [...matchedUserIds];
+    }
+  }
+}
+
+export async function listAdminUsers(
+  page: number,
+  input?: {
+    keyword?: string;
+    pageSize?: number;
+  },
+) {
   const admin = createAdminSupabaseClient();
+  const pageSize = input?.pageSize ?? 50;
   const currentPage = Number.isInteger(page) && page > 0 ? page : 1;
   const rangeFrom = (currentPage - 1) * pageSize;
   const rangeTo = rangeFrom + pageSize - 1;
+  const keyword = input?.keyword?.trim() ?? "";
+  let users: AppUserRow[] = [];
+  let total = 0;
+  let questionnaireContext: Awaited<ReturnType<typeof getEffectiveQuestionnaireContext>>;
 
-  const [usersResult, countResult, questionnaireContext] = await Promise.all([
-    admin
-      .from("app_users")
-      .select(
-        "id, role, account_status, nickname, gender, grade, department, campus, birth_year, deleted_at, created_at",
-      )
-      .order("created_at", { ascending: false })
-      .range(rangeFrom, rangeTo),
-    admin.from("app_users").select("id", { head: true, count: "exact" }),
-    getEffectiveQuestionnaireContext(admin),
-  ]);
+  if (keyword) {
+    const [matchedAuthUserIds, nicknameResult, resolvedQuestionnaireContext] =
+      await Promise.all([
+        findAuthUserIdsByKeyword(admin, keyword),
+        admin.from("app_users").select("id").ilike("nickname", `%${keyword}%`),
+        getEffectiveQuestionnaireContext(admin),
+      ]);
 
-  if (usersResult.error) {
-    throw usersResult.error;
+    if (nicknameResult.error) {
+      throw nicknameResult.error;
+    }
+
+    const matchedUserIds = [
+      ...new Set([
+        ...matchedAuthUserIds,
+        ...(nicknameResult.data ?? []).map((item) => item.id),
+      ]),
+    ];
+
+    questionnaireContext = resolvedQuestionnaireContext;
+    total = matchedUserIds.length;
+
+    if (matchedUserIds.length > 0) {
+      const usersResult = await admin
+        .from("app_users")
+        .select(ADMIN_USER_COLUMNS)
+        .in("id", matchedUserIds)
+        .order("created_at", { ascending: false })
+        .range(rangeFrom, rangeTo);
+
+      if (usersResult.error) {
+        throw usersResult.error;
+      }
+
+      users = (usersResult.data ?? []) as AppUserRow[];
+    }
+  } else {
+    const [usersResult, countResult, resolvedQuestionnaireContext] = await Promise.all([
+      admin
+        .from("app_users")
+        .select(ADMIN_USER_COLUMNS)
+        .order("created_at", { ascending: false })
+        .range(rangeFrom, rangeTo),
+      admin.from("app_users").select("id", { head: true, count: "exact" }),
+      getEffectiveQuestionnaireContext(admin),
+    ]);
+
+    if (usersResult.error) {
+      throw usersResult.error;
+    }
+
+    if (countResult.error) {
+      throw countResult.error;
+    }
+
+    users = (usersResult.data ?? []) as AppUserRow[];
+    total = countResult.count ?? 0;
+    questionnaireContext = resolvedQuestionnaireContext;
   }
 
-  if (countResult.error) {
-    throw countResult.error;
-  }
-
-  const users = usersResult.data ?? [];
   const userIds = users.map((item) => item.id);
 
   const [submissionResult, participationResult] = await Promise.all([
@@ -169,7 +273,6 @@ export async function listAdminUsers(page: number, pageSize = 50) {
   );
 
   const authUserById = new Map(authUsers);
-  const total = countResult.count ?? 0;
 
   return {
     effectiveQuestionnaireVersionNo: questionnaireContext?.versionNo ?? null,
