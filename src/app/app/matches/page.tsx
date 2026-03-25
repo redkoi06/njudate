@@ -2,11 +2,11 @@ import Link from "next/link";
 
 import { EmptyState, SectionHeader, SurfaceCard } from "@/components/site-ui";
 import { getMatchRecords } from "@/features/app/data";
-import { requireSessionUser } from "@/lib/auth/session";
+import { requireAppUser } from "@/lib/auth/session";
 import { formatDateTime, getMatchStatusLabel } from "@/lib/site";
 
 export default async function MatchesPage() {
-  const user = await requireSessionUser();
+  const user = await requireAppUser();
   const records = await getMatchRecords(user.id);
 
   return (

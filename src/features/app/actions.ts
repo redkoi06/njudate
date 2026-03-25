@@ -18,10 +18,12 @@ import {
   signInSchema,
   signUpSchema,
 } from "@/lib/auth/credentials";
+import { getDefaultHomePathForRole } from "@/lib/auth/permissions";
 import { sendTransactionalEmail } from "@/lib/email/send";
 import { getPublicEnv } from "@/lib/env/client";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import type { Json } from "@/types/database.generated";
 
 function buildProfileSchema() {
   const { minBirthYear, maxBirthYear } = getBirthYearRange();
@@ -58,14 +60,11 @@ const settingsSchema = z.object({
   notifyPlatformDigest: z.boolean(),
 });
 
-const contactSchema = z.object({
-  senderName: z.string().trim().min(1, "请填写称呼"),
-  senderEmail: z.string().trim().email("请填写有效邮箱"),
-  topic: z.string().trim().min(1, "请填写主题"),
-  message: z.string().trim().min(12, "请补充更完整的内容"),
+const deleteAccountResultSchema = z.object({
+  userId: z.string().uuid(),
+  cancelledParticipationIds: z.array(z.string().uuid()).default([]),
 });
 
-const accountRequestTypeSchema = z.enum(["export_data", "delete_account"]);
 const INVALID_LOGIN_CREDENTIALS_MESSAGE = "Invalid login credentials";
 const UNREGISTERED_LOGIN_ERROR_MESSAGE = "此邮箱未注册，请先注册";
 const REGISTERED_EMAIL_ERROR_MESSAGE = "该邮箱已注册，请直接登录。";
@@ -78,6 +77,11 @@ type AuthRegistrationStatus =
   | "not_found"
   | "registered_confirmed"
   | "registered_unconfirmed";
+
+const DELETED_ACCOUNT_LOGIN_ERROR_MESSAGE = "账号已删除，无法登录。";
+const DELETED_ACCOUNT_SESSION_ERROR_MESSAGE = "账号已删除，请重新登录。";
+
+type AppAccountStatus = "active" | "restricted" | "deleted";
 
 function redirectWithSearchParams(
   pathname: string,
@@ -115,6 +119,27 @@ async function requireAuthenticatedClient() {
 
   if (!user) {
     redirect("/login");
+  }
+
+  const { data: appUser, error: appUserError } = await supabase
+    .from("app_users")
+    .select("role, account_status, deleted_at")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (appUserError) {
+    throw appUserError;
+  }
+
+  if (appUser?.role === "admin") {
+    redirect("/admin");
+  }
+
+  if (appUser?.account_status === "deleted" || appUser?.deleted_at) {
+    await supabase.auth.signOut();
+    redirectWithSearchParams("/login", {
+      error: DELETED_ACCOUNT_SESSION_ERROR_MESSAGE,
+    });
   }
 
   return { supabase, user };
@@ -277,9 +302,16 @@ function isInvalidLoginCredentialsError(error: unknown) {
   );
 }
 
-async function getAuthRegistrationStatus(
-  email: string,
-): Promise<AuthRegistrationStatus> {
+async function getAuthRegistrationStatus(email: string): Promise<AuthRegistrationStatus> {
+  const lookup = await getAuthUserLookup(email);
+  return lookup.registrationStatus;
+}
+
+async function getAuthUserLookup(email: string): Promise<{
+  accountStatus: AppAccountStatus | null;
+  registrationStatus: AuthRegistrationStatus;
+  userId: string | null;
+}> {
   const admin = createAdminSupabaseClient();
   const normalizedEmail = email.trim().toLowerCase();
   const perPage = 500;
@@ -294,18 +326,72 @@ async function getAuthRegistrationStatus(
     const matched = data.users.find(
       (user) => user.email?.toLowerCase() === normalizedEmail,
     );
+
     if (matched) {
-      return matched.email_confirmed_at
-        ? "registered_confirmed"
-        : "registered_unconfirmed";
+      const { data: appUser, error: appUserError } = await admin
+        .from("app_users")
+        .select("account_status")
+        .eq("id", matched.id)
+        .maybeSingle();
+
+      if (appUserError) {
+        throw appUserError;
+      }
+
+      return {
+        accountStatus: (appUser?.account_status ?? null) as AppAccountStatus | null,
+        registrationStatus: matched.email_confirmed_at
+          ? "registered_confirmed"
+          : "registered_unconfirmed",
+        userId: matched.id ?? null,
+      };
     }
 
     if (data.users.length < perPage) {
-      return "not_found";
+      return {
+        accountStatus: null,
+        registrationStatus: "not_found",
+        userId: null,
+      };
     }
   }
 
   throw new Error("无法确认邮箱注册状态");
+}
+
+function getActionErrorMessage(error: unknown, fallback: string) {
+  if (
+    error &&
+    typeof error === "object" &&
+    "message" in error &&
+    typeof (error as { message?: unknown }).message === "string" &&
+    (error as { message: string }).message.trim().length > 0
+  ) {
+    return (error as { message: string }).message;
+  }
+
+  return fallback;
+}
+
+async function writeAccountOperationLog(input: {
+  actionType: string;
+  payloadJson?: Json;
+  userId: string;
+}) {
+  const admin = createAdminSupabaseClient();
+  const { error } = await admin.from("operation_logs").insert({
+    actor_role: "system",
+    actor_user_id: input.userId,
+    target_user_id: input.userId,
+    action_type: input.actionType,
+    entity_type: "app_user",
+    entity_id: input.userId,
+    payload_json: input.payloadJson ?? null,
+  });
+
+  if (error) {
+    console.error("Failed to write account operation log", error);
+  }
 }
 
 export async function registerUserAction(formData: FormData) {
@@ -390,17 +476,23 @@ export async function signInWithPasswordAction(formData: FormData) {
     });
   }
 
+  const lookup = await getAuthUserLookup(payload.data.email);
+  if (lookup.accountStatus === "deleted") {
+    return redirectWithSearchParams("/login", {
+      email: payload.data.email,
+      error: DELETED_ACCOUNT_LOGIN_ERROR_MESSAGE,
+    });
+  }
+
   const supabase = await createServerSupabaseClient();
-  const { error } = await supabase.auth.signInWithPassword({
+  const { data, error } = await supabase.auth.signInWithPassword({
     email: payload.data.email,
     password: payload.data.password,
   });
 
   if (error) {
     if (isInvalidLoginCredentialsError(error)) {
-      const status = await getAuthRegistrationStatus(payload.data.email);
-
-      if (status === "not_found") {
+      if (lookup.registrationStatus === "not_found") {
         return redirectWithSearchParams("/login", {
           email: payload.data.email,
           error: UNREGISTERED_LOGIN_ERROR_MESSAGE,
@@ -414,7 +506,30 @@ export async function signInWithPasswordAction(formData: FormData) {
     });
   }
 
-  redirect("/app");
+  const roleResult = data.user
+    ? await supabase
+        .from("app_users")
+        .select("role, account_status, deleted_at")
+        .eq("id", data.user.id)
+        .maybeSingle()
+    : null;
+
+  if (roleResult?.error) {
+    throw roleResult.error;
+  }
+
+  if (
+    roleResult?.data?.account_status === "deleted" ||
+    roleResult?.data?.deleted_at
+  ) {
+    await supabase.auth.signOut();
+    return redirectWithSearchParams("/login", {
+      email: payload.data.email,
+      error: DELETED_ACCOUNT_LOGIN_ERROR_MESSAGE,
+    });
+  }
+
+  redirect(getDefaultHomePathForRole(roleResult?.data?.role ?? "user"));
 }
 
 export async function signOutAction() {
@@ -548,53 +663,61 @@ export async function saveSettingsAction(formData: FormData) {
   redirect("/app/settings");
 }
 
-export async function createContactRequestAction(formData: FormData) {
-  const payload = contactSchema.parse({
-    senderName: stringField(formData, "senderName"),
-    senderEmail: stringField(formData, "senderEmail"),
-    topic: stringField(formData, "topic"),
-    message: stringField(formData, "message"),
-  });
-
-  const supabase = await createServerSupabaseClient();
-  const { error } = await supabase.rpc("create_service_request", {
-    p_request_type: "consultation",
-    p_sender_name: payload.senderName,
-    p_sender_email: payload.senderEmail,
-    p_topic: payload.topic,
-    p_message: payload.message,
-    p_priority: "normal",
-  });
+export async function deleteOwnAccountAction() {
+  const { supabase, user } = await requireAuthenticatedClient();
+  const { data, error } = await supabase.rpc("delete_my_account");
 
   if (error) {
-    throw error;
+    return redirectWithSearchParams("/app/settings", {
+      accountError: getActionErrorMessage(error, "删除账号失败，请稍后再试。"),
+    });
   }
 
-  redirect("/contact?submitted=1");
-}
-
-export async function createAccountRequestAction(formData: FormData) {
-  const { supabase } = await requireAuthenticatedClient();
-  const requestType = accountRequestTypeSchema.parse(
-    stringField(formData, "requestType"),
-  );
-  const topic =
-    requestType === "delete_account" ? "删除账号申请" : "个人数据导出申请";
-  const message = stringField(formData, "message");
-
-  const { error } = await supabase.rpc("create_service_request", {
-    p_request_type: requestType,
-    p_topic: topic,
-    p_message: message,
-    p_priority: "normal",
+  const deleteResult = deleteAccountResultSchema.parse(data);
+  const admin = createAdminSupabaseClient();
+  const { error: banError } = await admin.auth.admin.updateUserById(user.id, {
+    ban_duration: "876000h",
   });
 
-  if (error) {
-    throw error;
+  if (banError) {
+    const { error: rollbackError } = await admin.rpc("rollback_delete_my_account", {
+      p_user_id: deleteResult.userId,
+      p_cancelled_participation_ids: deleteResult.cancelledParticipationIds,
+    });
+
+    if (rollbackError) {
+      await writeAccountOperationLog({
+        actionType: "account_delete_rollback_failed",
+        userId: deleteResult.userId,
+        payloadJson: {
+          auth_error_message: getActionErrorMessage(
+            banError,
+            "Auth ban failed during account deletion.",
+          ),
+          cancelled_participation_ids: deleteResult.cancelledParticipationIds,
+          rollback_error_message: getActionErrorMessage(
+            rollbackError,
+            "Account delete rollback failed.",
+          ),
+        },
+      });
+    } else {
+      await writeAccountOperationLog({
+        actionType: "account_delete_rolled_back_after_auth_ban_failure",
+        userId: deleteResult.userId,
+        payloadJson: {
+          auth_error_message: getActionErrorMessage(
+            banError,
+            "Auth ban failed during account deletion.",
+          ),
+          cancelled_participation_ids: deleteResult.cancelledParticipationIds,
+        },
+      });
+    }
   }
 
-  revalidatePath("/app/settings");
-  redirect("/app/settings");
+  await supabase.auth.signOut();
+  redirect("/");
 }
 
 export async function triggerMatchContactAction(formData: FormData) {
@@ -656,4 +779,20 @@ export async function markMatchViewedAction(formData: FormData) {
   revalidatePath("/app/matches");
   revalidatePath(`/app/matches/${matchResultId}`);
   redirect(`/app/matches/${matchResultId}`);
+}
+
+export async function markNotificationReadAction(formData: FormData) {
+  const { supabase } = await requireAuthenticatedClient();
+  const notificationId = stringField(formData, "notificationId");
+
+  const { error } = await supabase.rpc("mark_notification_read", {
+    p_notification_id: notificationId,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  revalidatePath("/app/dashboard");
+  redirect("/app/dashboard");
 }

@@ -1,12 +1,20 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+import { getEffectiveQuestionnaireContext } from "@/features/app/questionnaire-runtime";
 import { getAppEntryPath, isProfileCompleted } from "@/features/app/profile-contract";
+import { getDefaultHomePathForRole } from "@/lib/auth/permissions";
 import { getPublicEnv } from "@/lib/env/client";
 import type { Database } from "@/types/database.generated";
 
+const DELETED_ACCOUNT_SESSION_ERROR_MESSAGE = "账号已删除，请重新登录。";
+
 function isAppPath(pathname: string) {
   return pathname === "/app" || pathname.startsWith("/app/");
+}
+
+function isAdminPath(pathname: string) {
+  return pathname === "/admin" || pathname.startsWith("/admin/");
 }
 
 function redirectWithCookies(
@@ -60,18 +68,45 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user || !isAppPath(pathname)) {
+  if (!user || (!isAppPath(pathname) && !isAdminPath(pathname))) {
     return response;
   }
 
   const profileResult = await supabase
     .from("app_users")
-    .select("nickname, gender, grade, department, campus, birth_year")
+    .select("role, account_status, deleted_at, nickname, gender, grade, department, campus, birth_year")
     .eq("id", user.id)
     .maybeSingle();
 
   if (profileResult.error) {
     return response;
+  }
+
+  if (
+    profileResult.data?.account_status === "deleted" ||
+    profileResult.data?.deleted_at
+  ) {
+    await supabase.auth.signOut();
+    return redirectWithCookies(
+      request,
+      response,
+      `/login?error=${encodeURIComponent(DELETED_ACCOUNT_SESSION_ERROR_MESSAGE)}`,
+    );
+  }
+
+  const role = profileResult.data?.role ?? "user";
+  const defaultHomePath = getDefaultHomePathForRole(role);
+
+  if (role === "admin") {
+    if (isAppPath(pathname)) {
+      return redirectWithCookies(request, response, defaultHomePath);
+    }
+
+    return response;
+  }
+
+  if (isAdminPath(pathname)) {
+    return redirectWithCookies(request, response, defaultHomePath);
   }
 
   const profileCompleted = profileResult.data
@@ -86,24 +121,18 @@ export async function updateSession(request: NextRequest) {
     : false;
 
   let questionnaireCompleted = true;
+  let questionnaireWindowStatus: "open" | "closed" = "open";
 
   if (profileCompleted) {
-    const publishedVersionResult = await supabase
-      .from("questionnaire_versions")
-      .select("id")
-      .eq("status", "published")
-      .maybeSingle();
+    const questionnaireContext = await getEffectiveQuestionnaireContext(supabase);
 
-    if (publishedVersionResult.error) {
-      return response;
-    }
-
-    if (publishedVersionResult.data) {
+    if (questionnaireContext) {
+      questionnaireWindowStatus = questionnaireContext.windowStatus;
       const submissionResult = await supabase
         .from("questionnaire_submissions")
         .select("id")
         .eq("user_id", user.id)
-        .eq("questionnaire_version_id", publishedVersionResult.data.id)
+        .eq("questionnaire_version_id", questionnaireContext.versionId)
         .eq("status", "submitted")
         .maybeSingle();
 
@@ -124,11 +153,20 @@ export async function updateSession(request: NextRequest) {
     return redirectWithCookies(request, response, entryPath);
   }
 
-  if (profileCompleted && !questionnaireCompleted && pathname !== entryPath) {
+  if (
+    profileCompleted &&
+    !questionnaireCompleted &&
+    questionnaireWindowStatus === "open" &&
+    pathname !== entryPath
+  ) {
     return redirectWithCookies(request, response, entryPath);
   }
 
-  if (profileCompleted && questionnaireCompleted && pathname === "/app") {
+  if (
+    profileCompleted &&
+    (questionnaireCompleted || questionnaireWindowStatus === "closed") &&
+    pathname === "/app"
+  ) {
     return redirectWithCookies(request, response, "/app/dashboard");
   }
 

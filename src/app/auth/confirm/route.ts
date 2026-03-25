@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+import { getDefaultHomePathForRole } from "@/lib/auth/permissions";
 import { getPublicEnv } from "@/lib/env/client";
 import type { Database } from "@/types/database.generated";
 
@@ -26,9 +27,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  let response = NextResponse.redirect(
-    new URL("/app", env.NEXT_PUBLIC_SITE_URL),
-  );
+  let response = NextResponse.redirect(new URL("/app", env.NEXT_PUBLIC_SITE_URL));
 
   const supabase = createServerClient<Database>(
     env.NEXT_PUBLIC_SUPABASE_URL,
@@ -78,6 +77,27 @@ export async function GET(request: NextRequest) {
     );
     await supabase.auth.signOut();
     return response;
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (user?.id) {
+    const roleResult = await supabase
+      .from("app_users")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (!roleResult.error && roleResult.data?.role) {
+      response = NextResponse.redirect(
+        new URL(
+          getDefaultHomePathForRole(roleResult.data.role),
+          env.NEXT_PUBLIC_SITE_URL,
+        ),
+      );
+    }
   }
 
   return response;

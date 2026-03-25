@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import loginBrandIcon from "../../../icon/icon.png";
 import { Button, Field } from "@/components/site-ui";
 import { signInWithPasswordAction } from "@/features/app/actions";
-import { getOptionalSessionUser } from "@/lib/auth/session";
+import { getCurrentSessionHomePath, getOptionalSessionUser } from "@/lib/auth/session";
 import { allowedEmailDomainsLabel } from "@/lib/auth/credentials";
 
 import { UserAgreementDialog } from "./user-agreement-dialog";
@@ -23,7 +23,7 @@ export default async function LoginPage({
   ]);
 
   if (user) {
-    redirect("/app");
+    redirect(await getCurrentSessionHomePath());
   }
 
   const email =

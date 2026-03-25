@@ -54,7 +54,7 @@ export interface Database {
       };
       app_users: {
         Row: {
-          account_status: "active" | "restricted" | "delete_requested" | "deleted";
+          account_status: "active" | "restricted" | "deleted";
           account_status_reason: string | null;
           birth_year: number | null;
           campus: string | null;
@@ -109,41 +109,32 @@ export interface Database {
           created_at: Timestamp;
           id: UUID;
           label: string;
+          last_error_message: string | null;
           match_run_at: Timestamp;
+          matching_policy_snapshot_json: Json;
           notes: string | null;
           paused_reason: string | null;
           processed_at: Timestamp | null;
           published_at: Timestamp | null;
           questionnaire_version_id: UUID;
           result_publish_at: Timestamp;
+          round_no: number;
           signup_end_at: Timestamp;
           signup_start_at: Timestamp;
-          status:
-            | "draft"
-            | "open"
-            | "locked"
-            | "processing"
-            | "published"
-            | "cancelled"
-            | "failed";
+          status: "draft" | "open" | "locked" | "processing" | "published" | "failed";
           updated_at: Timestamp;
         };
         Insert: Partial<Database["public"]["Tables"]["match_batches"]["Row"]> & {
           code: string;
           label: string;
           match_run_at: Timestamp;
+          matching_policy_snapshot_json: Json;
           questionnaire_version_id: UUID;
           result_publish_at: Timestamp;
+          round_no: number;
           signup_end_at: Timestamp;
           signup_start_at: Timestamp;
-          status:
-            | "draft"
-            | "open"
-            | "locked"
-            | "processing"
-            | "published"
-            | "cancelled"
-            | "failed";
+          status: "draft" | "open" | "locked" | "processing" | "published" | "failed";
         };
         Update: Partial<Database["public"]["Tables"]["match_batches"]["Row"]>;
         Relationships: [];
@@ -255,7 +246,7 @@ export interface Database {
           helper_text: string | null;
           id: UUID;
           is_required: boolean;
-          kind: "text" | "single" | "multiple" | "scale";
+          kind: "single" | "multiple" | "scale";
           options_json: Json | null;
           placeholder: string | null;
           prompt: string;
@@ -268,13 +259,15 @@ export interface Database {
           section_id: UUID;
           sort_order: number;
           updated_at: Timestamp;
+          weight: number;
         };
         Insert: Partial<Database["public"]["Tables"]["questionnaire_questions"]["Row"]> & {
-          kind: "text" | "single" | "multiple" | "scale";
+          kind: "single" | "multiple" | "scale";
           prompt: string;
           question_code: string;
           questionnaire_version_id: UUID;
           section_id: UUID;
+          weight?: number;
         };
         Update: Partial<Database["public"]["Tables"]["questionnaire_questions"]["Row"]>;
         Relationships: [];
@@ -328,6 +321,7 @@ export interface Database {
           created_by: UUID | null;
           description: string;
           id: UUID;
+          matching_policy_json: Json;
           published_at: Timestamp | null;
           status: "draft" | "published" | "archived";
           title: string;
@@ -336,39 +330,12 @@ export interface Database {
         };
         Insert: Partial<Database["public"]["Tables"]["questionnaire_versions"]["Row"]> & {
           description: string;
+          matching_policy_json: Json;
           status: "draft" | "published" | "archived";
           title: string;
           version_no: number;
         };
         Update: Partial<Database["public"]["Tables"]["questionnaire_versions"]["Row"]>;
-        Relationships: [];
-      };
-      service_requests: {
-        Row: {
-          admin_reply: string | null;
-          completed_at: Timestamp | null;
-          created_at: Timestamp;
-          handled_at: Timestamp | null;
-          handled_by: UUID | null;
-          id: UUID;
-          internal_note: string | null;
-          message: string | null;
-          priority: "normal" | "urgent";
-          request_type: "consultation" | "report" | "export_data" | "delete_account";
-          sender_email: string;
-          sender_name: string | null;
-          status: "open" | "processing" | "resolved" | "closed";
-          topic: string | null;
-          updated_at: Timestamp;
-          user_id: UUID | null;
-        };
-        Insert: Partial<Database["public"]["Tables"]["service_requests"]["Row"]> & {
-          priority: "normal" | "urgent";
-          request_type: "consultation" | "report" | "export_data" | "delete_account";
-          sender_email: string;
-          status?: "open" | "processing" | "resolved" | "closed";
-        };
-        Update: Partial<Database["public"]["Tables"]["service_requests"]["Row"]>;
         Relationships: [];
       };
     };
@@ -378,20 +345,13 @@ export interface Database {
         Args: Record<string, never>;
         Returns: UUID;
       };
-      create_service_request: {
-        Args: {
-          p_message?: string | null;
-          p_priority?: string | null;
-          p_request_type: string;
-          p_sender_email?: string | null;
-          p_sender_name?: string | null;
-          p_topic?: string | null;
-        };
-        Returns: UUID;
-      };
       current_user_email: {
         Args: Record<string, never>;
         Returns: string;
+      };
+      delete_my_account: {
+        Args: Record<string, never>;
+        Returns: Json;
       };
       get_allowed_email_domains: {
         Args: Record<string, never>;
@@ -414,6 +374,19 @@ export interface Database {
       mark_notification_read: {
         Args: {
           p_notification_id: UUID;
+        };
+        Returns: UUID;
+      };
+      publish_match_batch: {
+        Args: {
+          p_batch_id: UUID;
+        };
+        Returns: UUID;
+      };
+      rollback_delete_my_account: {
+        Args: {
+          p_cancelled_participation_ids: UUID[];
+          p_user_id: UUID;
         };
         Returns: UUID;
       };

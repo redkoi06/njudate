@@ -1,18 +1,18 @@
-import { SectionHeader, SurfaceCard } from "@/components/site-ui";
+import { Button, SectionHeader, SurfaceCard } from "@/components/site-ui";
+import { markNotificationReadAction } from "@/features/app/actions";
 import {
   getAnnouncements,
   getDashboardData,
   getNotifications,
 } from "@/features/app/data";
-import { requireSessionUser } from "@/lib/auth/session";
+import { requireAppUser } from "@/lib/auth/session";
 import {
   formatDateTime,
   getCurrentRoundStatusLabel,
-  getQuestionnaireStatusLabel,
 } from "@/lib/site";
 
 export default async function DashboardPage() {
-  const user = await requireSessionUser();
+  const user = await requireAppUser();
   const [dashboard, announcements, notifications] = await Promise.all([
     getDashboardData(user.id),
     getAnnouncements().catch(() => []),
@@ -35,26 +35,37 @@ export default async function DashboardPage() {
             },
             {
               label: "问卷状态",
-              value: getQuestionnaireStatusLabel(dashboard.questionnaireStatus),
+              value: dashboard.questionnaireStatusLabel,
+              hint: dashboard.questionnaireStatusHint,
             },
             {
               label: "本轮参与",
               value: dashboard.hasJoinedCurrentBatch ? "已报名" : "未参与",
             },
           ].map((item) => (
-            <div key={item.label} className="border-border rounded-2xl border p-4">
-              <p className="text-muted-foreground text-xs tracking-[0.2em]">
-                {item.label}
-              </p>
-              <p className="mt-3 text-xl">{item.value}</p>
-            </div>
-          ))}
+                <div key={item.label} className="border-border rounded-2xl border p-4">
+                  <p className="text-muted-foreground text-xs tracking-[0.2em]">
+                    {item.label}
+                  </p>
+                  <p className="mt-3 text-xl">{item.value}</p>
+                  {"hint" in item && item.hint ? (
+                    <p className="text-secondary-foreground/80 mt-3 text-sm leading-7">
+                      {item.hint}
+                    </p>
+                  ) : null}
+                </div>
+              ))}
         </div>
       </SurfaceCard>
 
       <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
         <SurfaceCard>
           <h2 className="text-2xl">当前轮次</h2>
+          {dashboard.questionnaireWindowStatus === "closed" ? (
+            <p className="mt-4 rounded-2xl border border-[color:var(--status-warning)]/20 bg-[color:var(--status-warning-bg)] px-4 py-3 text-sm leading-7 text-[color:var(--status-warning)]">
+              当前轮报名已经截止，结果公布前问卷通道保持关闭。
+            </p>
+          ) : null}
           <p className="text-secondary-foreground/80 mt-3 text-sm leading-7">
             当前状态：{getCurrentRoundStatusLabel(dashboard.currentRoundStatus)}。
           </p>
@@ -88,10 +99,22 @@ export default async function DashboardPage() {
             {notifications.length > 0 ? (
               notifications.map((item) => (
                 <div key={item.id} className="border-border rounded-2xl border p-4">
-                  <p className="text-sm">{item.title}</p>
-                  <p className="text-secondary-foreground/80 mt-2 text-sm leading-7">
-                    {item.body}
-                  </p>
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm">{item.title}</p>
+                      <p className="text-secondary-foreground/80 mt-2 text-sm leading-7">
+                        {item.body}
+                      </p>
+                    </div>
+                    {!item.isRead ? (
+                      <form action={markNotificationReadAction}>
+                        <input type="hidden" name="notificationId" value={item.id} />
+                        <Button size="sm" tone="soft" type="submit">
+                          标记已读
+                        </Button>
+                      </form>
+                    ) : null}
+                  </div>
                 </div>
               ))
             ) : (

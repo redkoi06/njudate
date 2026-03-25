@@ -3,11 +3,20 @@ import "server-only";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import {
   type CounterpartSnapshot,
-  getQuestionnaireOverviewStatus,
   isProfileCompleted,
   isQuestionnaireCompletedStatus,
   parseCounterpartSnapshot,
 } from "@/features/app/profile-contract";
+import {
+  type QuestionnaireWindowStatus,
+  getEffectiveQuestionnaireContext,
+  getQuestionnaireStateStatus,
+} from "@/features/app/questionnaire-runtime";
+import {
+  getQuestionnaireParticipationRequirement,
+  getQuestionnaireStatusHint,
+  getQuestionnaireStatusLabel,
+} from "@/lib/site";
 
 export type QuestionOption = {
   id: string;
@@ -17,7 +26,7 @@ export type QuestionOption = {
 export type QuestionnaireQuestion = {
   id: string;
   questionCode: string;
-  kind: "text" | "single" | "multiple" | "scale";
+  kind: "single" | "multiple" | "scale";
   prompt: string;
   helperText: string | null;
   placeholder: string | null;
@@ -28,6 +37,7 @@ export type QuestionnaireQuestion = {
   scaleLeftLabel: string | null;
   scaleRightLabel: string | null;
   sortOrder: number;
+  weight: number;
 };
 
 export type QuestionnaireSection = {
@@ -41,31 +51,40 @@ export type QuestionnaireSection = {
 };
 
 export type QuestionnaireState = {
+  activeBatchId: string | null;
+  activeBatchStatus: string | null;
   versionId: string;
   versionNo: number;
   title: string;
   description: string;
   draftSubmissionId: string | null;
+  resultPublishAt: string | null;
   submittedSubmissionId: string | null;
+  signupEndAt: string | null;
   status: "not_started" | "draft" | "submitted" | "updated";
   answers: Record<string, string | string[] | number>;
   sections: QuestionnaireSection[];
+  source: "batch" | "published";
+  windowStatus: QuestionnaireWindowStatus;
 };
 
 export type DashboardData = {
   profileCompleted: boolean;
+  questionnaireStatusHint: string;
+  questionnaireStatusLabel: string;
   questionnaireStatus: QuestionnaireState["status"];
+  questionnaireWindowStatus: QuestionnaireWindowStatus;
   hasJoinedCurrentBatch: boolean;
   currentRoundStatus: "not_joined" | "waiting_result" | "result_published";
   currentBatchLabel: string | null;
   currentBatchDeadline: string | null;
   currentBatchResultPublishedAt: string | null;
-  questionnaireOverviewStatus: ReturnType<typeof getQuestionnaireOverviewStatus>;
 };
 
 export type ParticipationState = {
   batchId: string | null;
   label: string | null;
+  resultPublishAt: string | null;
   signupEndAt: string | null;
   matchRunAt: string | null;
   status: "not_joined" | "joined" | "locked" | "unavailable";
@@ -115,7 +134,7 @@ export type ProfileData = {
   department: string;
   campus: string;
   birthYear: number | null;
-  accountStatus: "active" | "restricted" | "delete_requested" | "deleted";
+  accountStatus: "active" | "restricted" | "deleted";
 };
 
 export type SettingsData = {
@@ -208,8 +227,9 @@ export async function getAnnouncements() {
   const now = new Date().toISOString();
   const { data, error } = await supabase
     .from("announcements")
-    .select("id, eyebrow, title, body")
+    .select("id, eyebrow, title, body, audience")
     .eq("status", "published")
+    .in("audience", ["all", "public", "user"])
     .lte("starts_at", now)
     .gte("ends_at", now)
     .order("starts_at", { ascending: false });
@@ -218,7 +238,12 @@ export async function getAnnouncements() {
     throw error;
   }
 
-  return (data ?? []) as AnnouncementItem[];
+  return (data ?? []).map((item) => ({
+    body: item.body,
+    eyebrow: item.eyebrow,
+    id: item.id,
+    title: item.title,
+  })) satisfies AnnouncementItem[];
 }
 
 export async function getCurrentProfile(userId: string) {
@@ -268,34 +293,30 @@ export async function getSettings(userId: string) {
 
 export async function getQuestionnaireState(userId: string) {
   const supabase = await createServerSupabaseClient();
-  const { data: version, error: versionError } = await supabase
-    .from("questionnaire_versions")
-    .select("id, version_no, title, description")
-    .eq("status", "published")
-    .single();
+  const context = await getEffectiveQuestionnaireContext(supabase);
 
-  if (versionError) {
-    throw versionError;
+  if (!context) {
+    throw new Error("当前没有可用的问卷版本。");
   }
 
   const [sectionsResult, questionsResult, submissionsResult] = await Promise.all([
     supabase
       .from("questionnaire_sections")
       .select("id, code, title, subtitle, description, sort_order")
-      .eq("questionnaire_version_id", version.id)
+      .eq("questionnaire_version_id", context.versionId)
       .order("sort_order", { ascending: true }),
     supabase
       .from("questionnaire_questions")
       .select(
-        "id, section_id, question_code, kind, prompt, helper_text, placeholder, is_required, options_json, scale_min, scale_max, scale_left_label, scale_right_label, sort_order",
+        "id, section_id, question_code, kind, prompt, helper_text, placeholder, is_required, options_json, scale_min, scale_max, scale_left_label, scale_right_label, sort_order, weight",
       )
-      .eq("questionnaire_version_id", version.id)
+      .eq("questionnaire_version_id", context.versionId)
       .order("sort_order", { ascending: true }),
     supabase
       .from("questionnaire_submissions")
       .select("id, status, answers_json, submission_no")
       .eq("user_id", userId)
-      .eq("questionnaire_version_id", version.id)
+      .eq("questionnaire_version_id", context.versionId)
       .order("submission_no", { ascending: false }),
   ]);
 
@@ -334,6 +355,7 @@ export async function getQuestionnaireState(userId: string) {
         scaleLeftLabel: question.scale_left_label,
         scaleRightLabel: question.scale_right_label,
         sortOrder: question.sort_order,
+        weight: question.weight,
       })),
   })) satisfies QuestionnaireSection[];
 
@@ -343,43 +365,58 @@ export async function getQuestionnaireState(userId: string) {
   const latest = draft ?? submitted ?? null;
 
   return {
-    versionId: version.id,
-    versionNo: version.version_no,
-    title: version.title,
-    description: version.description,
+    activeBatchId: context.batchId,
+    activeBatchStatus: context.batchStatus,
+    versionId: context.versionId,
+    versionNo: context.versionNo,
+    title: context.title,
+    description: context.description,
     draftSubmissionId: draft?.id ?? null,
     submittedSubmissionId: submitted?.id ?? null,
-    status:
-      draft && submitted
-        ? "updated"
-        : draft
-          ? "draft"
-          : submitted
-            ? "submitted"
-            : "not_started",
+    resultPublishAt: context.resultPublishAt,
+    signupEndAt: context.signupEndAt,
+    status: getQuestionnaireStateStatus({
+      hasDraft: Boolean(draft),
+      hasSubmitted: Boolean(submitted),
+    }),
     answers: mapAnswers(latest?.answers_json),
     sections,
+    source: context.source,
+    windowStatus: context.windowStatus,
   } satisfies QuestionnaireState;
 }
 
 export async function getParticipationState(userId: string) {
   const supabase = await createServerSupabaseClient();
-  const { data: batch, error: batchError } = await supabase
-    .from("match_batches")
-    .select("id, label, signup_end_at, match_run_at, status")
-    .eq("status", "open")
-    .order("signup_end_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
+  const questionnaireContext = await getEffectiveQuestionnaireContext(supabase);
 
-  if (batchError) {
-    throw batchError;
-  }
+  if (!questionnaireContext?.batchId || questionnaireContext.windowStatus === "closed") {
+    if (questionnaireContext?.batchId) {
+      const { data: currentBatch, error: currentBatchError } = await supabase
+        .from("match_batches")
+        .select("id, label, signup_end_at, match_run_at, result_publish_at")
+        .eq("id", questionnaireContext.batchId)
+        .single();
 
-  if (!batch) {
+      if (currentBatchError) {
+        throw currentBatchError;
+      }
+
+      return {
+        batchId: currentBatch.id,
+        label: currentBatch.label,
+        resultPublishAt: currentBatch.result_publish_at,
+        signupEndAt: currentBatch.signup_end_at,
+        matchRunAt: currentBatch.match_run_at,
+        status: "unavailable",
+        reason: "当前轮报名已截止，结果公布前暂不开放新的参与。",
+      } satisfies ParticipationState;
+    }
+
     return {
       batchId: null,
       label: null,
+      resultPublishAt: null,
       signupEndAt: null,
       matchRunAt: null,
       status: "unavailable",
@@ -387,11 +424,22 @@ export async function getParticipationState(userId: string) {
     } satisfies ParticipationState;
   }
 
+  const { data: batch, error: batchError } = await supabase
+    .from("match_batches")
+    .select("id, label, signup_end_at, match_run_at, result_publish_at, status")
+    .eq("id", questionnaireContext.batchId)
+    .single();
+
+  if (batchError) {
+    throw batchError;
+  }
+
   const profile = await getCurrentProfile(userId);
   if (!isProfileCompleted(profile)) {
     return {
       batchId: batch.id,
       label: batch.label,
+      resultPublishAt: batch.result_publish_at,
       signupEndAt: batch.signup_end_at,
       matchRunAt: batch.match_run_at,
       status: "unavailable",
@@ -400,14 +448,21 @@ export async function getParticipationState(userId: string) {
   }
 
   const questionnaire = await getQuestionnaireState(userId);
-  if (!isQuestionnaireCompletedStatus(questionnaire.status)) {
+  if (
+    questionnaire.windowStatus !== "open" ||
+    !isQuestionnaireCompletedStatus(questionnaire.status)
+  ) {
     return {
       batchId: batch.id,
       label: batch.label,
+      resultPublishAt: batch.result_publish_at,
       signupEndAt: batch.signup_end_at,
       matchRunAt: batch.match_run_at,
       status: "unavailable",
-      reason: "请先正式提交当前问卷，再加入本周匹配。",
+      reason: getQuestionnaireParticipationRequirement({
+        status: questionnaire.status,
+        windowStatus: questionnaire.windowStatus,
+      }),
     } satisfies ParticipationState;
   }
 
@@ -426,6 +481,7 @@ export async function getParticipationState(userId: string) {
     return {
       batchId: batch.id,
       label: batch.label,
+      resultPublishAt: batch.result_publish_at,
       signupEndAt: batch.signup_end_at,
       matchRunAt: batch.match_run_at,
       status: "not_joined",
@@ -437,6 +493,7 @@ export async function getParticipationState(userId: string) {
     return {
       batchId: batch.id,
       label: batch.label,
+      resultPublishAt: batch.result_publish_at,
       signupEndAt: batch.signup_end_at,
       matchRunAt: batch.match_run_at,
       status: "not_joined",
@@ -447,6 +504,7 @@ export async function getParticipationState(userId: string) {
   return {
     batchId: batch.id,
     label: batch.label,
+    resultPublishAt: batch.result_publish_at,
     signupEndAt: batch.signup_end_at,
     matchRunAt: batch.match_run_at,
     status: participation.status === "locked" ? "locked" : "joined",
@@ -456,25 +514,82 @@ export async function getParticipationState(userId: string) {
 
 export async function getNotifications(userId: string) {
   const supabase = await createServerSupabaseClient();
-  const { data, error } = await supabase
-    .from("notifications")
-    .select("id, title, body, level, is_read, created_at")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false })
-    .limit(8);
+  const pageSize = 24;
+  const visibleNotifications: NotificationItem[] = [];
 
-  if (error) {
-    throw error;
+  for (let page = 0; visibleNotifications.length < 8; page += 1) {
+    const rangeFrom = page * pageSize;
+    const rangeTo = rangeFrom + pageSize - 1;
+    const { data, error } = await supabase
+      .from("notifications")
+      .select("id, title, body, level, is_read, created_at, source_type, source_id")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .range(rangeFrom, rangeTo);
+
+    if (error) {
+      throw error;
+    }
+
+    const currentPage = data ?? [];
+    if (currentPage.length === 0) {
+      break;
+    }
+
+    const matchResultSourceIds = [
+      ...new Set(
+        currentPage
+          .filter(
+            (item): item is typeof item & { source_id: string } =>
+              item.source_type === "match_result" &&
+              typeof item.source_id === "string",
+          )
+          .map((item) => item.source_id),
+      ),
+    ];
+    const releasedResultIds = new Set<string>();
+
+    if (matchResultSourceIds.length > 0) {
+      const { data: releasedResults, error: releasedResultsError } = await supabase
+        .from("match_results")
+        .select("id")
+        .eq("user_id", userId)
+        .in("id", matchResultSourceIds)
+        .not("released_at", "is", null);
+
+      if (releasedResultsError) {
+        throw releasedResultsError;
+      }
+
+      for (const result of releasedResults ?? []) {
+        releasedResultIds.add(result.id);
+      }
+    }
+
+    visibleNotifications.push(
+      ...currentPage
+        .filter(
+          (item) =>
+            item.source_type !== "match_result" ||
+            (typeof item.source_id === "string" &&
+              releasedResultIds.has(item.source_id)),
+        )
+        .map((item) => ({
+          id: item.id,
+          title: item.title,
+          body: item.body,
+          level: item.level,
+          isRead: item.is_read,
+          createdAt: item.created_at,
+        })),
+    );
+
+    if (currentPage.length < pageSize) {
+      break;
+    }
   }
 
-  return (data ?? []).map((item) => ({
-    id: item.id,
-    title: item.title,
-    body: item.body,
-    level: item.level,
-    isRead: item.is_read,
-    createdAt: item.created_at,
-  })) satisfies NotificationItem[];
+  return visibleNotifications.slice(0, 8);
 }
 
 export async function getMatchRecords(userId: string) {
@@ -483,6 +598,7 @@ export async function getMatchRecords(userId: string) {
     .from("match_results")
     .select("id, batch_id, status, preview_text, score, viewed_at, released_at")
     .eq("user_id", userId)
+    .not("released_at", "is", null)
     .order("created_at", { ascending: false });
 
   if (resultsError) {
@@ -496,16 +612,22 @@ export async function getMatchRecords(userId: string) {
   const batchIds = [...new Set(results.map((item) => item.batch_id))];
   const { data: batches, error: batchesError } = await supabase
     .from("match_batches")
-    .select("id, label")
+    .select("id, label, status")
     .in("id", batchIds);
 
   if (batchesError) {
     throw batchesError;
   }
 
-  const labelMap = new Map((batches ?? []).map((batch) => [batch.id, batch.label]));
+  const labelMap = new Map(
+    (batches ?? [])
+      .filter((batch) => batch.status === "published")
+      .map((batch) => [batch.id, batch.label]),
+  );
 
-  return results.map((item) => ({
+  const visibleResults = results.filter((item) => labelMap.has(item.batch_id));
+
+  return visibleResults.map((item) => ({
     id: item.id,
     batchLabel: labelMap.get(item.batch_id) ?? "未命名批次",
     status: item.status,
@@ -525,6 +647,7 @@ export async function getMatchDetail(userId: string, matchId: string) {
     )
     .eq("id", matchId)
     .eq("user_id", userId)
+    .not("released_at", "is", null)
     .maybeSingle();
 
   if (error) {
@@ -537,12 +660,16 @@ export async function getMatchDetail(userId: string, matchId: string) {
 
   const { data: batch, error: batchError } = await supabase
     .from("match_batches")
-    .select("label")
+    .select("label, status")
     .eq("id", record.batch_id)
     .single();
 
   if (batchError) {
     throw batchError;
+  }
+
+  if (batch.status !== "published") {
+    return null;
   }
 
   let contactStatus: MatchDetail["contactStatus"] = null;
@@ -582,23 +709,26 @@ export async function getMatchDetail(userId: string, matchId: string) {
 
 export async function getDashboardData(userId: string) {
   const supabase = await createServerSupabaseClient();
-  const [profile, questionnaire, currentBatchResult] = await Promise.all([
+  const [profile, questionnaire] = await Promise.all([
     getCurrentProfile(userId),
     getQuestionnaireState(userId),
-    supabase
-      .from("match_batches")
-      .select("id, label, signup_end_at, result_publish_at, status")
-      .in("status", ["open", "locked", "processing", "published"])
-      .order("signup_end_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
   ]);
+  const activeBatchId = questionnaire.activeBatchId;
+  const currentBatch = activeBatchId
+    ? await (async () => {
+        const { data, error } = await supabase
+          .from("match_batches")
+          .select("id, label, signup_end_at, result_publish_at, status")
+          .eq("id", activeBatchId)
+          .maybeSingle();
 
-  if (currentBatchResult.error) {
-    throw currentBatchResult.error;
-  }
+        if (error) {
+          throw error;
+        }
 
-  const currentBatch = currentBatchResult.data;
+        return data;
+      })()
+    : null;
   let hasJoinedCurrentBatch = false;
   let currentRoundStatus: DashboardData["currentRoundStatus"] = "not_joined";
 
@@ -632,7 +762,7 @@ export async function getDashboardData(userId: string) {
 
     if (hasJoinedCurrentBatch) {
       currentRoundStatus =
-        matchResult.data?.released_at || currentBatch.status === "published"
+        currentBatch.status === "published" && Boolean(matchResult.data?.released_at)
           ? "result_published"
           : "waiting_result";
     }
@@ -640,14 +770,24 @@ export async function getDashboardData(userId: string) {
 
   return {
     profileCompleted: isProfileCompleted(profile),
+    questionnaireStatusHint: getQuestionnaireStatusHint({
+      resultPublishAt: questionnaire.resultPublishAt,
+      signupEndAt: questionnaire.signupEndAt,
+      status: questionnaire.status,
+      windowStatus: questionnaire.windowStatus,
+    }),
+    questionnaireStatusLabel: getQuestionnaireStatusLabel({
+      resultPublishAt: questionnaire.resultPublishAt,
+      signupEndAt: questionnaire.signupEndAt,
+      status: questionnaire.status,
+      windowStatus: questionnaire.windowStatus,
+    }),
     questionnaireStatus: questionnaire.status,
+    questionnaireWindowStatus: questionnaire.windowStatus,
     hasJoinedCurrentBatch,
     currentRoundStatus,
     currentBatchLabel: currentBatch?.label ?? null,
     currentBatchDeadline: currentBatch?.signup_end_at ?? null,
     currentBatchResultPublishedAt: currentBatch?.result_publish_at ?? null,
-    questionnaireOverviewStatus: getQuestionnaireOverviewStatus(
-      questionnaire.status,
-    ),
   } satisfies DashboardData;
 }

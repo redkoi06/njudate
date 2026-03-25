@@ -207,12 +207,6 @@ export function canAccessAppPath(pathname: string, input: {
   return true;
 }
 
-export function getQuestionnaireOverviewStatus(
-  status: "not_started" | "draft" | "submitted" | "updated",
-) {
-  return isQuestionnaireCompletedStatus(status) ? "已填写" : "未填写";
-}
-
 export function parseCounterpartSnapshot(
   raw: unknown,
 ): CounterpartSnapshot | null {

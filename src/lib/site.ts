@@ -18,10 +18,29 @@ export const USER_NAV_ITEMS = [
   { href: "/app/settings", label: "设置" },
 ] as const;
 
+export const ADMIN_NAV_ITEMS = [
+  { href: "/admin", label: "总览" },
+  { href: "/admin/questionnaires", label: "问卷版本" },
+  { href: "/admin/batches", label: "批次运营" },
+  { href: "/admin/announcements", label: "公告后台" },
+  { href: "/admin/configs", label: "平台配置" },
+  { href: "/admin/users", label: "用户管理" },
+] as const;
+
 const dateTimeFormatter = new Intl.DateTimeFormat("zh-CN", {
   timeZone: "Asia/Shanghai",
   month: "numeric",
   day: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
+
+const dateTimeInputFormatter = new Intl.DateTimeFormat("sv-SE", {
+  timeZone: "Asia/Shanghai",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
   hour: "2-digit",
   minute: "2-digit",
   hour12: false,
@@ -40,18 +59,87 @@ export function formatDateTime(value: string | null | undefined) {
   return dateTimeFormatter.format(date);
 }
 
-export function getQuestionnaireStatusLabel(
+export function formatDateTimeInputValue(value: string | null | undefined) {
+  if (!value) {
+    return "";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return dateTimeInputFormatter.format(date).replace(" ", "T");
+}
+
+export function getQuestionnaireSubmissionStatusLabel(
   status: "not_started" | "draft" | "submitted" | "updated",
 ) {
   switch (status) {
     case "not_started":
-      return "未填写";
+      return "当前版本未开始";
     case "draft":
-      return "未填写";
+      return "当前版本草稿未提交";
     case "submitted":
-      return "已填写";
+      return "当前版本已提交";
     case "updated":
-      return "已填写";
+      return "当前版本已提交，另有未提交草稿";
+  }
+}
+
+export function getQuestionnaireStatusLabel(input: {
+  resultPublishAt?: string | null;
+  signupEndAt?: string | null;
+  status: "not_started" | "draft" | "submitted" | "updated";
+  windowStatus: "open" | "closed";
+}) {
+  if (input.windowStatus === "closed") {
+    return "当前轮问卷通道已关闭";
+  }
+
+  return getQuestionnaireSubmissionStatusLabel(input.status);
+}
+
+export function getQuestionnaireStatusHint(input: {
+  resultPublishAt?: string | null;
+  signupEndAt?: string | null;
+  status: "not_started" | "draft" | "submitted" | "updated";
+  windowStatus: "open" | "closed";
+}) {
+  if (input.windowStatus === "closed") {
+    return `当前轮问卷通道已关闭。本轮报名截止于 ${formatDateTime(input.signupEndAt)}，结果公布时间为 ${formatDateTime(input.resultPublishAt)}。结果公布前仅支持查看，不允许保存或提交。`;
+  }
+
+  switch (input.status) {
+    case "not_started":
+      return "你还没有开始填写当前生效版本，请先完成正式提交。";
+    case "draft":
+      return "你已经保存了当前版本草稿，但还没有正式提交。";
+    case "submitted":
+      return "你已经正式提交当前版本，当前状态为已填写。";
+    case "updated":
+      return "你已经提交过当前版本，当前草稿尚未再次正式提交；系统仍以最近一次正式提交作为有效答案。";
+  }
+}
+
+export function getQuestionnaireParticipationRequirement(input: {
+  status: "not_started" | "draft" | "submitted" | "updated";
+  windowStatus: "open" | "closed";
+}) {
+  if (input.windowStatus === "closed") {
+    return "当前轮问卷通道已关闭，结果公布前不再开放新的提交或报名。";
+  }
+
+  switch (input.status) {
+    case "not_started":
+      return "当前版本未开始，请先正式提交当前问卷。";
+    case "draft":
+      return "当前版本草稿未提交，请先正式提交当前问卷。";
+    case "submitted":
+      return "当前版本已提交。";
+    case "updated":
+      return "当前版本已提交，另有未提交草稿。";
   }
 }
 

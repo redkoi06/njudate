@@ -45,6 +45,7 @@ import { registerUserAction } from "@/features/app/actions";
 type MockAuthUser = {
   email?: string | null;
   email_confirmed_at?: string | null;
+  id?: string;
 };
 
 function createRegisterFormData(email: string) {
@@ -72,6 +73,10 @@ describe("registerUserAction", () => {
   const listUsersMock = vi.fn();
   const signUpMock = vi.fn();
   const resendMock = vi.fn();
+  const maybeSingleMock = vi.fn();
+  const eqMock = vi.fn();
+  const selectMock = vi.fn();
+  const fromMock = vi.fn();
 
   beforeEach(() => {
     redirectMock.mockClear();
@@ -80,6 +85,24 @@ describe("registerUserAction", () => {
     listUsersMock.mockReset();
     signUpMock.mockReset();
     resendMock.mockReset();
+    maybeSingleMock.mockReset();
+    eqMock.mockReset();
+    selectMock.mockReset();
+    fromMock.mockReset();
+
+    maybeSingleMock.mockResolvedValue({
+      data: { account_status: "active" },
+      error: null,
+    });
+    eqMock.mockReturnValue({
+      maybeSingle: maybeSingleMock,
+    });
+    selectMock.mockReturnValue({
+      eq: eqMock,
+    });
+    fromMock.mockReturnValue({
+      select: selectMock,
+    });
 
     createAdminSupabaseClientMock.mockReturnValue({
       auth: {
@@ -87,6 +110,7 @@ describe("registerUserAction", () => {
           listUsers: listUsersMock,
         },
       },
+      from: fromMock,
     });
 
     createServerSupabaseClientMock.mockResolvedValue({
@@ -117,6 +141,7 @@ describe("registerUserAction", () => {
       {
         email,
         email_confirmed_at: "2026-03-22T12:00:00Z",
+        id: "user-1",
       },
     ];
     listUsersMock.mockResolvedValue({
@@ -137,6 +162,7 @@ describe("registerUserAction", () => {
       {
         email,
         email_confirmed_at: null,
+        id: "user-1",
       },
     ];
     listUsersMock.mockResolvedValue({
@@ -166,6 +192,7 @@ describe("registerUserAction", () => {
       {
         email,
         email_confirmed_at: null,
+        id: "user-1",
       },
     ];
     listUsersMock.mockResolvedValue({

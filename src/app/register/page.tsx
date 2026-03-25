@@ -5,7 +5,7 @@ import { allowedEmailDomainsLabel } from "@/lib/auth/credentials";
 import { PublicShell } from "@/components/site-shell";
 import { ButtonLink, SectionHeader, SurfaceCard } from "@/components/site-ui";
 import { registerUserAction } from "@/features/app/actions";
-import { getOptionalSessionUser } from "@/lib/auth/session";
+import { getCurrentSessionHomePath, getOptionalSessionUser } from "@/lib/auth/session";
 
 export default async function RegisterPage({
   searchParams,
@@ -18,7 +18,7 @@ export default async function RegisterPage({
   ]);
 
   if (user) {
-    redirect("/app");
+    redirect(await getCurrentSessionHomePath());
   }
 
   const email =

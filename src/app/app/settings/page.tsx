@@ -1,21 +1,34 @@
-import { Button, SectionHeader, SurfaceCard, TextArea } from "@/components/site-ui";
-import {
-  createAccountRequestAction,
-  saveSettingsAction,
-} from "@/features/app/actions";
+import { Button, SectionHeader, SurfaceCard } from "@/components/site-ui";
+import { saveSettingsAction } from "@/features/app/actions";
 import { getSettings } from "@/features/app/data";
-import { requireSessionUser } from "@/lib/auth/session";
+import { requireAppUser } from "@/lib/auth/session";
 
-export default async function SettingsPage() {
-  const user = await requireSessionUser();
+import { DeleteAccountPanel } from "./delete-account-panel";
+
+function getSearchParamValue(
+  value: string | string[] | undefined,
+): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const [user, resolvedSearchParams] = await Promise.all([
+    requireAppUser(),
+    searchParams,
+  ]);
   const settings = await getSettings(user.id);
+  const accountError = getSearchParamValue(resolvedSearchParams?.accountError);
 
   return (
     <div className="grid gap-6">
       <SurfaceCard>
         <SectionHeader
           eyebrow="设置"
-          title="通知偏好与账户申请"
+          title="通知偏好与账号安全"
           description="关键通知仍会按平台规则保留，非关键提醒可以在这里调整。"
         />
         <form action={saveSettingsAction} className="mt-8 grid gap-4">
@@ -50,37 +63,10 @@ export default async function SettingsPage() {
       </SurfaceCard>
 
       <SurfaceCard>
-        <h2 className="text-2xl">数据导出申请</h2>
-        <form action={createAccountRequestAction} className="mt-5 grid gap-4">
-          <input type="hidden" name="requestType" value="export_data" />
-          <TextArea
-            name="message"
-            label="补充说明"
-            hint="如果你希望导出特定范围的数据，可以在这里补充。"
-          />
-          <div className="flex justify-end">
-            <Button tone="soft" type="submit">
-              提交导出申请
-            </Button>
-          </div>
-        </form>
-      </SurfaceCard>
-
-      <SurfaceCard>
-        <h2 className="text-2xl">删除账号申请</h2>
-        <form action={createAccountRequestAction} className="mt-5 grid gap-4">
-          <input type="hidden" name="requestType" value="delete_account" />
-          <TextArea
-            name="message"
-            label="补充说明"
-            hint="请说明是否有需要平台提前处理或保留的事项。"
-          />
-          <div className="flex justify-end">
-            <Button tone="soft" type="submit">
-              提交删除申请
-            </Button>
-          </div>
-        </form>
+        <h2 className="text-2xl">删除账号</h2>
+        <DeleteAccountPanel
+          {...(accountError ? { errorMessage: accountError } : {})}
+        />
       </SurfaceCard>
     </div>
   );

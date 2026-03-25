@@ -7,7 +7,7 @@ import {
 } from "@/features/app/actions";
 import { getMatchDetail } from "@/features/app/data";
 import { PROFILE_SUMMARY_FIELDS } from "@/features/app/profile-contract";
-import { requireSessionUser } from "@/lib/auth/session";
+import { requireAppUser } from "@/lib/auth/session";
 import {
   formatDateTime,
   getContactStatusLabel,
@@ -19,7 +19,7 @@ export default async function MatchDetailPage({
 }: {
   params: Promise<{ matchId: string }>;
 }) {
-  const [{ matchId }, user] = await Promise.all([params, requireSessionUser()]);
+  const [{ matchId }, user] = await Promise.all([params, requireAppUser()]);
   const detail = await getMatchDetail(user.id, matchId);
 
   if (!detail) {

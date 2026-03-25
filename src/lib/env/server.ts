@@ -22,7 +22,6 @@ export function getServerEnv(): ServerEnv {
     SMTP_PASSWORD: process.env.SMTP_PASSWORD,
     SMTP_FROM_EMAIL: process.env.SMTP_FROM_EMAIL,
     SMTP_FROM_NAME: process.env.SMTP_FROM_NAME,
-    CRON_SECRET: process.env.CRON_SECRET,
   });
 
   return cachedServerEnv;

@@ -1,5 +1,6 @@
 import "server-only";
 
+import { countActiveSubmittedQuestionnaireUsers } from "@/lib/questionnaire-metrics";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 
 export type HomePageMetrics = {
@@ -84,10 +85,10 @@ export async function getHomePageData(signedIn: boolean) {
     supabase
       .from("match_batches")
       .select(
-        "id, label, questionnaire_version_id, signup_end_at, match_run_at, result_publish_at",
+        "id, label, status, questionnaire_version_id, signup_end_at, match_run_at, result_publish_at",
       )
-      .eq("status", "open")
-      .order("signup_start_at", { ascending: true })
+      .in("status", ["open", "locked", "processing", "failed"])
+      .order("signup_end_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
     supabase
@@ -146,7 +147,7 @@ export async function getHomePageData(signedIn: boolean) {
   const publishedVersionId =
     currentBatch?.questionnaire_version_id ?? publishedVersionResult.data?.id ?? null;
 
-  const [participantsResult, questionnaireSubmissionsResult] = await Promise.all([
+  const [participantsResult, questionnaireCompletedUsers] = await Promise.all([
     currentBatch
       ? supabase
           .from("batch_participations")
@@ -154,27 +155,14 @@ export async function getHomePageData(signedIn: boolean) {
           .eq("batch_id", currentBatch.id)
           .in("status", ["joined", "locked"])
       : Promise.resolve({ data: null, count: 0, error: null }),
-    publishedVersionId
-      ? supabase
-          .from("questionnaire_submissions")
-          .select("user_id")
-          .eq("questionnaire_version_id", publishedVersionId)
-          .eq("status", "submitted")
-      : Promise.resolve({ data: [], error: null }),
+    countActiveSubmittedQuestionnaireUsers(supabase, publishedVersionId),
   ]);
 
   if (participantsResult.error) {
     throw participantsResult.error;
   }
 
-  if (questionnaireSubmissionsResult.error) {
-    throw questionnaireSubmissionsResult.error;
-  }
-
   const registeredUsers = registeredUsersResult.count ?? 0;
-  const questionnaireCompletedUsers = getDistinctUserCount(
-    questionnaireSubmissionsResult.data ?? [],
-  );
   const matchedUsers = getDistinctUserCount(matchedUsersResult.data ?? []);
   const questionnaireCompletionRate =
     registeredUsers > 0

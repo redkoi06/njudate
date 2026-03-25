@@ -2,17 +2,14 @@ import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { AppShell } from "@/components/site-shell";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { requireAppUser } from "@/lib/auth/session";
 
 export default async function AuthenticatedLayout({
   children,
 }: Readonly<{ children: ReactNode }>) {
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await requireAppUser();
 
-  if (!user?.email) {
+  if (!user.email) {
     redirect("/login");
   }
 

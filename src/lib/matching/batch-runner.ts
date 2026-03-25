@@ -2,58 +2,29 @@ import "server-only";
 
 import { randomUUID } from "node:crypto";
 
+import {
+  buildPairCandidates,
+  selectGreedyPairs,
+  type MatchingParticipant,
+  type MatchingProfileSnapshot,
+  type MatchingQuestion,
+} from "@/lib/matching/engine";
+import { matchingPolicySchema } from "@/lib/matching/policy";
 import { sendTransactionalEmail } from "@/lib/email/send";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import type { Json } from "@/types/database.generated";
 
-type QuestionRow = {
+type BatchProcessRow = {
   id: string;
-  question_code: string;
-  kind: "text" | "single" | "multiple" | "scale";
-  prompt: string;
-  options_json: Json | null;
-  scale_min: number | null;
-  scale_max: number | null;
-};
-
-type Participant = {
-  participationId: string;
-  userId: string;
-  answers: Record<string, string | string[] | number>;
-  profileSnapshot: Record<string, unknown>;
-};
-
-type CandidateReason = {
-  score: number;
-  reason: string;
-  signal?: string | undefined;
-};
-
-type QuestionComparison = {
-  score: number;
-  reason?: string;
-  signal?: string;
-};
-
-type PairCandidate = {
-  left: Participant;
-  right: Participant;
-  score: number;
-  comparableCount: number;
-  reasons: string[];
-  sharedSignals: string[];
-  previewText: string;
-};
-
-type BatchRunSummary = {
-  lockedBatchIds: string[];
-  processedBatchIds: string[];
-  publishedBatchIds: string[];
+  label: string;
+  processed_at: string | null;
+  matching_policy_snapshot_json: Json;
+  questionnaire_version_id: string;
+  status: "draft" | "open" | "locked" | "processing" | "published" | "failed";
 };
 
 const MATCH_SOURCE_TYPE = "match_result";
-const SYSTEM_ACTOR_ROLE = "system";
-const SCORABLE_KINDS = new Set(["single", "multiple", "scale"]);
+type BatchProcessingClaimStatus = "failed" | "locked";
 
 function isObjectRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -67,6 +38,7 @@ function asAnswerRecord(value: Json): Record<string, string | string[] | number>
   return Object.fromEntries(
     Object.entries(value).filter((entry): entry is [string, string | string[] | number] => {
       const candidate = entry[1];
+
       return (
         typeof candidate === "string" ||
         typeof candidate === "number" ||
@@ -77,388 +49,217 @@ function asAnswerRecord(value: Json): Record<string, string | string[] | number>
   );
 }
 
-function asProfileSnapshot(value: Json): Record<string, unknown> {
+function asProfileSnapshot(value: Json): MatchingProfileSnapshot {
   if (!isObjectRecord(value)) {
     return {};
   }
 
-  return value;
-}
-
-function getOptionMap(question: QuestionRow) {
-  if (!Array.isArray(question.options_json)) {
-    return new Map<string, string>();
-  }
-
-  return new Map(
-    question.options_json.flatMap((item) => {
-      if (
-        isObjectRecord(item) &&
-        typeof item.id === "string" &&
-        typeof item.label === "string"
-      ) {
-        return [[item.id, item.label] as const];
-      }
-
-      return [];
-    }),
-  );
-}
-
-function buildCounterpartSnapshot(profileSnapshot: Record<string, unknown>) {
-  const snapshot = {
-    nickname:
-      typeof profileSnapshot.nickname === "string" ? profileSnapshot.nickname : null,
-    gender:
-      typeof profileSnapshot.gender === "string" ? profileSnapshot.gender : null,
-    grade: typeof profileSnapshot.grade === "string" ? profileSnapshot.grade : null,
-    department:
-      typeof profileSnapshot.department === "string"
-        ? profileSnapshot.department
+  return {
+    birth_year:
+      typeof value.birth_year === "number" && Number.isInteger(value.birth_year)
+        ? value.birth_year
         : null,
-    campus:
-      typeof profileSnapshot.campus === "string"
-        ? profileSnapshot.campus
-        : null,
-    birthYear:
-      typeof profileSnapshot.birth_year === "number" &&
-      Number.isInteger(profileSnapshot.birth_year)
-        ? profileSnapshot.birth_year
-        : null,
-  };
-
-  return snapshot satisfies Record<string, unknown>;
-}
-
-function buildFallbackReasons(left: Participant, right: Participant) {
-  return [
-    "你们都愿意完整回答当前问卷，并在本周主动加入匹配。",
-    "你们都更适合先从低打扰、稳定节奏的交流开始。",
-    `你们分别来自 ${String(left.profileSnapshot.department ?? "校内")} 与 ${String(right.profileSnapshot.department ?? "校内")} 的学习生活背景，具备继续了解的空间。`,
-  ];
-}
-
-function compareSingleQuestion(
-  question: QuestionRow,
-  leftAnswer: string,
-  rightAnswer: string,
-): QuestionComparison {
-  const optionMap = getOptionMap(question);
-  if (leftAnswer !== rightAnswer) {
-    return { score: 0 };
-  }
-
-  const label = optionMap.get(leftAnswer) ?? leftAnswer;
-  return {
-    score: 1,
-    reason: `你们在“${question.prompt}”上的选择一致，都更偏向“${label}”。`,
-    signal: label,
+    campus: typeof value.campus === "string" ? value.campus : null,
+    department: typeof value.department === "string" ? value.department : null,
+    gender: typeof value.gender === "string" ? value.gender : null,
+    grade: typeof value.grade === "string" ? value.grade : null,
+    nickname: typeof value.nickname === "string" ? value.nickname : null,
   };
 }
 
-function compareMultipleQuestion(
-  question: QuestionRow,
-  leftAnswer: string[],
-  rightAnswer: string[],
-): QuestionComparison | null {
-  const leftSet = new Set(leftAnswer);
-  const rightSet = new Set(rightAnswer);
-  const shared = [...leftSet].filter((item) => rightSet.has(item));
-  const union = new Set([...leftSet, ...rightSet]);
-
-  if (union.size === 0) {
-    return null;
+function mapQuestionOptions(optionsJson: Json | null) {
+  if (!Array.isArray(optionsJson)) {
+    return [];
   }
 
-  const score = shared.length / union.size;
-  if (shared.length === 0) {
-    return { score };
-  }
-
-  const optionMap = getOptionMap(question);
-  const labels = shared.map((item) => optionMap.get(item) ?? item);
-
-  return {
-    score,
-    reason: `你们在“${question.prompt}”里都提到了“${labels.join("、")}”这类偏好。`,
-    signal: labels.join("、"),
-  };
-}
-
-function compareScaleQuestion(
-  question: QuestionRow,
-  leftAnswer: number,
-  rightAnswer: number,
-): QuestionComparison | null {
-  const min = question.scale_min ?? 1;
-  const max = question.scale_max ?? 5;
-  const range = max - min;
-
-  if (range <= 0) {
-    return null;
-  }
-
-  const score = 1 - Math.abs(leftAnswer - rightAnswer) / range;
-  if (score <= 0) {
-    return { score };
-  }
-
-  return {
-    score,
-    reason:
-      score >= 0.7
-        ? `你们对“${question.prompt}”的重视程度很接近。`
-        : `你们对“${question.prompt}”的判断差异不大。`,
-  };
-}
-
-function compareQuestion(
-  question: QuestionRow,
-  leftAnswer: string | string[] | number | undefined,
-  rightAnswer: string | string[] | number | undefined,
-): QuestionComparison | null {
-  if (leftAnswer === undefined || rightAnswer === undefined) {
-    return null;
-  }
-
-  switch (question.kind) {
-    case "single":
-      if (typeof leftAnswer !== "string" || typeof rightAnswer !== "string") {
-        return null;
-      }
-      return compareSingleQuestion(question, leftAnswer, rightAnswer);
-    case "multiple":
-      if (!Array.isArray(leftAnswer) || !Array.isArray(rightAnswer)) {
-        return null;
-      }
-      return compareMultipleQuestion(question, leftAnswer, rightAnswer);
-    case "scale":
-      if (typeof leftAnswer !== "number" || typeof rightAnswer !== "number") {
-        return null;
-      }
-      return compareScaleQuestion(question, leftAnswer, rightAnswer);
-    default:
-      return null;
-  }
-}
-
-function buildPairCandidate(
-  left: Participant,
-  right: Participant,
-  questions: QuestionRow[],
-) {
-  let totalScore = 0;
-  let comparableCount = 0;
-  const reasons: CandidateReason[] = [];
-
-  for (const question of questions) {
-    const comparison = compareQuestion(
-      question,
-      left.answers[question.question_code],
-      right.answers[question.question_code],
-    );
-
-    if (!comparison) {
-      continue;
+  return optionsJson.flatMap((option) => {
+    if (
+      isObjectRecord(option) &&
+      typeof option.id === "string" &&
+      typeof option.label === "string"
+    ) {
+      return [{ id: option.id, label: option.label }];
     }
 
-    comparableCount += 1;
-    totalScore += comparison.score;
-
-    if (comparison.reason) {
-      reasons.push({
-        score: comparison.score,
-        reason: comparison.reason,
-        signal: comparison.signal,
-      });
-    }
-  }
-
-  if (comparableCount === 0) {
-    return null;
-  }
-
-  const score = Math.round((totalScore / comparableCount) * 100);
-  const rankedReasons = reasons
-    .sort((leftReason, rightReason) => rightReason.score - leftReason.score)
-    .slice(0, 5);
-
-  const reasonTexts = rankedReasons.map((item) => item.reason);
-  const signals = rankedReasons.flatMap((item) => (item.signal ? [item.signal] : []));
-
-  while (reasonTexts.length < 3) {
-    const fallback = buildFallbackReasons(left, right)[reasonTexts.length];
-    if (!fallback) {
-      break;
-    }
-    reasonTexts.push(fallback);
-  }
-
-  return {
-    left,
-    right,
-    score,
-    comparableCount,
-    reasons: reasonTexts.slice(0, 5),
-    sharedSignals: signals.slice(0, 5),
-    previewText:
-      reasonTexts[0] ??
-      "你们在多个关键问题上的回答较为接近，适合先从稳定交流开始。",
-  } satisfies PairCandidate;
-}
-
-function buildParticipants(input: {
-  participations: Array<{
-    id: string;
-    user_id: string;
-    questionnaire_submission_id: string;
-    profile_snapshot_json: Json;
-  }>;
-  answersBySubmissionId: Map<string, Record<string, string | string[] | number>>;
-}) {
-  return input.participations.flatMap((item) => {
-    const answers = input.answersBySubmissionId.get(item.questionnaire_submission_id);
-
-    if (!answers) {
-      return [];
-    }
-
-    return [
-      {
-        participationId: item.id,
-        userId: item.user_id,
-        answers,
-        profileSnapshot: asProfileSnapshot(item.profile_snapshot_json),
-      } satisfies Participant,
-    ];
+    return [];
   });
 }
 
-function selectGreedyPairs(candidates: PairCandidate[]) {
-  const usedParticipationIds = new Set<string>();
-  const selected: PairCandidate[] = [];
-
-  for (const candidate of candidates.sort((left, right) => {
-    if (right.score !== left.score) {
-      return right.score - left.score;
-    }
-    if (right.comparableCount !== left.comparableCount) {
-      return right.comparableCount - left.comparableCount;
-    }
-    return `${left.left.participationId}-${left.right.participationId}`.localeCompare(
-      `${right.left.participationId}-${right.right.participationId}`,
-    );
-  })) {
-    if (candidate.score <= 0) {
-      continue;
-    }
-
-    if (
-      usedParticipationIds.has(candidate.left.participationId) ||
-      usedParticipationIds.has(candidate.right.participationId)
-    ) {
-      continue;
-    }
-
-    usedParticipationIds.add(candidate.left.participationId);
-    usedParticipationIds.add(candidate.right.participationId);
-    selected.push(candidate);
-  }
-
+function buildCounterpartSnapshot(profileSnapshot: MatchingProfileSnapshot) {
   return {
-    selected,
-    usedParticipationIds,
-  };
+    nickname: profileSnapshot.nickname ?? null,
+    gender: profileSnapshot.gender ?? null,
+    grade: profileSnapshot.grade ?? null,
+    department: profileSnapshot.department ?? null,
+    campus: profileSnapshot.campus ?? null,
+    birthYear: profileSnapshot.birth_year ?? null,
+  } satisfies Record<string, unknown>;
 }
 
-async function lockExpiredOpenBatches(nowIso: string) {
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  if (typeof error === "string") {
+    return error;
+  }
+
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return "未知错误";
+  }
+}
+
+async function writeOperationLog(input: {
+  actionType: string;
+  actorRole?: string;
+  entityId: string;
+  payloadJson?: Json;
+}) {
   const admin = createAdminSupabaseClient();
-  const { data: batches, error } = await admin
+  const { error } = await admin.from("operation_logs").insert({
+    actor_role: input.actorRole ?? "system",
+    action_type: input.actionType,
+    entity_type: "match_batch",
+    entity_id: input.entityId,
+    payload_json: input.payloadJson ?? null,
+  });
+
+  if (error) {
+    throw error;
+  }
+}
+
+async function markBatchFailed(input: {
+  actionType: string;
+  batchId: string;
+  error: unknown;
+}) {
+  const admin = createAdminSupabaseClient();
+  const errorMessage = getErrorMessage(input.error);
+
+  const { error: updateError } = await admin
     .from("match_batches")
-    .select("id")
-    .eq("status", "open")
-    .lt("signup_end_at", nowIso);
+    .update({
+      status: "failed",
+      last_error_message: errorMessage,
+    })
+    .eq("id", input.batchId)
+    .neq("status", "published");
+
+  if (updateError) {
+    throw updateError;
+  }
+
+  await writeOperationLog({
+    actionType: input.actionType,
+    entityId: input.batchId,
+    payloadJson: {
+      error_message: errorMessage,
+    },
+  });
+}
+
+async function fetchBatch(batchId: string) {
+  const admin = createAdminSupabaseClient();
+  const { data, error } = await admin
+    .from("match_batches")
+    .select(
+      "id, label, processed_at, questionnaire_version_id, matching_policy_snapshot_json, status",
+    )
+    .eq("id", batchId)
+    .maybeSingle();
 
   if (error) {
     throw error;
   }
 
-  const lockedBatchIds: string[] = [];
-
-  for (const batch of batches ?? []) {
-    const { error: batchError } = await admin
-      .from("match_batches")
-      .update({ status: "locked" })
-      .eq("id", batch.id)
-      .eq("status", "open");
-
-    if (batchError) {
-      throw batchError;
-    }
-
-    const { error: participationError } = await admin
-      .from("batch_participations")
-      .update({
-        status: "locked",
-        locked_at: nowIso,
-      })
-      .eq("batch_id", batch.id)
-      .eq("status", "joined");
-
-    if (participationError) {
-      throw participationError;
-    }
-
-    lockedBatchIds.push(batch.id);
+  if (!data) {
+    throw new Error("批次不存在。");
   }
 
-  return lockedBatchIds;
+  return data satisfies BatchProcessRow;
 }
 
-async function processBatch(batch: {
-  id: string;
-  questionnaire_version_id: string;
+async function claimBatchForProcessing(input: {
+  batchId: string;
+  fromStatus: BatchProcessingClaimStatus;
 }) {
   const admin = createAdminSupabaseClient();
-  const { error: transitionError } = await admin
-    .from("match_batches")
-    .update({ status: "processing" })
-    .eq("id", batch.id);
+  const updatePayload =
+    input.fromStatus === "failed"
+      ? {
+          status: "processing" as const,
+          processed_at: null,
+          published_at: null,
+          last_error_message: null,
+        }
+      : {
+          status: "processing" as const,
+          processed_at: null,
+          last_error_message: null,
+        };
 
-  if (transitionError) {
-    throw transitionError;
+  const { data, error } = await admin
+    .from("match_batches")
+    .update(updatePayload)
+    .eq("id", input.batchId)
+    .eq("status", input.fromStatus)
+    .select(
+      "id, label, processed_at, questionnaire_version_id, matching_policy_snapshot_json, status",
+    )
+    .maybeSingle();
+
+  if (error) {
+    throw error;
   }
 
-  await admin
+  if (!data) {
+    return null;
+  }
+
+  return data satisfies BatchProcessRow;
+}
+
+async function lockJoinedParticipations(batchId: string, nowIso: string) {
+  const admin = createAdminSupabaseClient();
+  const { error } = await admin
     .from("batch_participations")
     .update({
       status: "locked",
-      locked_at: new Date().toISOString(),
+      locked_at: nowIso,
     })
-    .eq("batch_id", batch.id)
+    .eq("batch_id", batchId)
     .eq("status", "joined");
 
+  if (error) {
+    throw error;
+  }
+}
+
+async function getParticipants(input: {
+  batchId: string;
+  questionnaireVersionId: string;
+}) {
+  const admin = createAdminSupabaseClient();
   const { data: participations, error: participationsError } = await admin
     .from("batch_participations")
     .select("id, user_id, questionnaire_submission_id, profile_snapshot_json")
-    .eq("batch_id", batch.id)
+    .eq("batch_id", input.batchId)
     .eq("status", "locked");
 
   if (participationsError) {
     throw participationsError;
   }
 
-  const { data: questions, error: questionsError } = await admin
-    .from("questionnaire_questions")
-    .select("id, question_code, kind, prompt, options_json, scale_min, scale_max")
-    .eq("questionnaire_version_id", batch.questionnaire_version_id)
-    .order("sort_order", { ascending: true });
+  const submissionIds = [
+    ...new Set(
+      (participations ?? []).map((item) => item.questionnaire_submission_id),
+    ),
+  ];
 
-  if (questionsError) {
-    throw questionsError;
-  }
-
-  const submissionIds = [...new Set((participations ?? []).map((item) => item.questionnaire_submission_id))];
   const { data: submissions, error: submissionsError } = submissionIds.length
     ? await admin
         .from("questionnaire_submissions")
@@ -471,399 +272,483 @@ async function processBatch(batch: {
   }
 
   const answersBySubmissionId = new Map(
-    (submissions ?? []).map((item) => [item.id, asAnswerRecord(item.answers_json)]),
+    (submissions ?? []).map((submission) => [
+      submission.id,
+      asAnswerRecord(submission.answers_json),
+    ]),
   );
-  const participants = buildParticipants({
-    participations: participations ?? [],
-    answersBySubmissionId,
-  });
 
-  const scorableQuestions = (questions ?? []).filter((question) =>
-    SCORABLE_KINDS.has(question.kind),
-  ) as QuestionRow[];
+  return (participations ?? []).flatMap((participation) => {
+    const answers = answersBySubmissionId.get(participation.questionnaire_submission_id);
 
-  const { error: deleteResultsError } = await admin
-    .from("match_results")
-    .delete()
-    .eq("batch_id", batch.id);
-
-  if (deleteResultsError) {
-    throw deleteResultsError;
-  }
-
-  const { error: deletePairsError } = await admin
-    .from("match_pairs")
-    .delete()
-    .eq("batch_id", batch.id);
-
-  if (deletePairsError) {
-    throw deletePairsError;
-  }
-
-  const pairCandidates: PairCandidate[] = [];
-  for (let leftIndex = 0; leftIndex < participants.length; leftIndex += 1) {
-    for (
-      let rightIndex = leftIndex + 1;
-      rightIndex < participants.length;
-      rightIndex += 1
-    ) {
-      const leftParticipant = participants[leftIndex];
-      const rightParticipant = participants[rightIndex];
-
-      if (!leftParticipant || !rightParticipant) {
-        continue;
-      }
-
-      const candidate = buildPairCandidate(
-        leftParticipant,
-        rightParticipant,
-        scorableQuestions,
-      );
-
-      if (candidate) {
-        pairCandidates.push(candidate);
-      }
-    }
-  }
-
-  const { selected, usedParticipationIds } = selectGreedyPairs(pairCandidates);
-  const nowIso = new Date().toISOString();
-
-  if (selected.length > 0) {
-    const pairRows = selected.map((candidate) => {
-      const ordered =
-        candidate.left.participationId < candidate.right.participationId
-          ? candidate
-          : {
-              ...candidate,
-              left: candidate.right,
-              right: candidate.left,
-            };
-
-      return {
-        id: randomUUID(),
-        batch_id: batch.id,
-        left_participation_id: ordered.left.participationId,
-        left_user_id: ordered.left.userId,
-        right_participation_id: ordered.right.participationId,
-        right_user_id: ordered.right.userId,
-      };
-    });
-
-    const { error: pairInsertError } = await admin
-      .from("match_pairs")
-      .insert(pairRows);
-
-    if (pairInsertError) {
-      throw pairInsertError;
+    if (!answers) {
+      return [];
     }
 
-    const pairIdByUsers = new Map(
-      pairRows.map((row) => [
-        `${row.left_participation_id}:${row.right_participation_id}`,
-        row.id,
-      ]),
-    );
-
-    const matchResults = selected.flatMap((candidate) => {
-      const ordered =
-        candidate.left.participationId < candidate.right.participationId
-          ? candidate
-          : {
-              ...candidate,
-              left: candidate.right,
-              right: candidate.left,
-            };
-      const pairId = pairIdByUsers.get(
-        `${ordered.left.participationId}:${ordered.right.participationId}`,
-      );
-
-      if (!pairId) {
-        return [];
-      }
-
-      return [
-        {
-          id: randomUUID(),
-          batch_id: batch.id,
-          user_id: candidate.left.userId,
-          participation_id: candidate.left.participationId,
-          match_pair_id: pairId,
-          status: "matched" as const,
-          counterpart_snapshot_json: buildCounterpartSnapshot(
-            candidate.right.profileSnapshot,
-          ),
-          score: candidate.score,
-          preview_text: candidate.previewText,
-          reasons: candidate.reasons,
-          shared_signals: candidate.sharedSignals,
-          released_at: null,
-        },
-        {
-          id: randomUUID(),
-          batch_id: batch.id,
-          user_id: candidate.right.userId,
-          participation_id: candidate.right.participationId,
-          match_pair_id: pairId,
-          status: "matched" as const,
-          counterpart_snapshot_json: buildCounterpartSnapshot(
-            candidate.left.profileSnapshot,
-          ),
-          score: candidate.score,
-          preview_text: candidate.previewText,
-          reasons: candidate.reasons,
-          shared_signals: candidate.sharedSignals,
-          released_at: null,
-        },
-      ];
-    });
-
-    const { error: resultsInsertError } = await admin
-      .from("match_results")
-      .insert(matchResults);
-
-    if (resultsInsertError) {
-      throw resultsInsertError;
-    }
-  }
-
-  const unmatchedRows = participants
-    .filter((participant) => !usedParticipationIds.has(participant.participationId))
-    .map((participant) => ({
-      id: randomUUID(),
-      batch_id: batch.id,
-      user_id: participant.userId,
-      participation_id: participant.participationId,
-      match_pair_id: null,
-      status: "unmatched" as const,
-      counterpart_snapshot_json: null,
-      score: null,
-      preview_text: "本轮暂未形成可发布匹配。",
-      reasons: null,
-      shared_signals: null,
-      released_at: null,
-    }));
-
-  if (unmatchedRows.length > 0) {
-    const { error: unmatchedInsertError } = await admin
-      .from("match_results")
-      .insert(unmatchedRows);
-
-    if (unmatchedInsertError) {
-      throw unmatchedInsertError;
-    }
-  }
-
-  const { error: batchUpdateError } = await admin
-    .from("match_batches")
-    .update({
-      status: "processing",
-      processed_at: nowIso,
-    })
-    .eq("id", batch.id);
-
-  if (batchUpdateError) {
-    throw batchUpdateError;
-  }
-
-  await admin.from("operation_logs").insert({
-    actor_role: SYSTEM_ACTOR_ROLE,
-    action_type: "batch_processed",
-    entity_type: "match_batch",
-    entity_id: batch.id,
-    payload_json: {
-      matched_pair_count: selected.length,
-      unmatched_count: unmatchedRows.length,
-    },
+    return [
+      {
+        answers,
+        participationId: participation.id,
+        profileSnapshot: asProfileSnapshot(participation.profile_snapshot_json),
+        userId: participation.user_id,
+      } satisfies MatchingParticipant,
+    ];
   });
 }
 
-async function publishBatch(batchId: string) {
+async function getMatchingQuestions(questionnaireVersionId: string) {
   const admin = createAdminSupabaseClient();
-  const nowIso = new Date().toISOString();
+  const { data, error } = await admin
+    .from("questionnaire_questions")
+    .select(
+      "question_code, kind, prompt, options_json, scale_min, scale_max, weight",
+    )
+    .eq("questionnaire_version_id", questionnaireVersionId)
+    .order("sort_order", { ascending: true });
 
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []).map((question) => ({
+    kind: question.kind,
+    options: mapQuestionOptions(question.options_json),
+    prompt: question.prompt,
+    questionCode: question.question_code,
+    scaleMax: question.scale_max,
+    scaleMin: question.scale_min,
+    weight: question.weight,
+  })) satisfies MatchingQuestion[];
+}
+
+async function deleteMatchResultNotificationsForBatch(batchId: string) {
+  const admin = createAdminSupabaseClient();
   const { data: results, error: resultsError } = await admin
     .from("match_results")
-    .select("id, user_id, status")
+    .select("id")
     .eq("batch_id", batchId);
 
   if (resultsError) {
     throw resultsError;
   }
 
-  const { error: releaseError } = await admin
+  const resultIds = (results ?? []).map((result) => result.id);
+  if (resultIds.length === 0) {
+    return;
+  }
+
+  const { error: deleteNotificationsError } = await admin
+    .from("notifications")
+    .delete()
+    .eq("source_type", MATCH_SOURCE_TYPE)
+    .in("source_id", resultIds);
+
+  if (deleteNotificationsError) {
+    throw deleteNotificationsError;
+  }
+}
+
+async function syncPendingMatchResultEmails(batchId: string) {
+  const admin = createAdminSupabaseClient();
+  const { data: results, error: resultsError } = await admin
     .from("match_results")
-    .update({ released_at: nowIso })
+    .select("id")
     .eq("batch_id", batchId)
-    .is("released_at", null);
+    .not("released_at", "is", null);
 
-  if (releaseError) {
-    throw releaseError;
+  if (resultsError) {
+    throw resultsError;
   }
 
-  const resultIds = (results ?? []).map((item) => item.id);
-  const existingNotifications = resultIds.length
-    ? await admin
-        .from("notifications")
-        .select("source_id")
-        .eq("source_type", MATCH_SOURCE_TYPE)
-        .in("source_id", resultIds)
-    : { data: [], error: null };
-
-  if (existingNotifications.error) {
-    throw existingNotifications.error;
+  const resultIds = (results ?? []).map((result) => result.id);
+  if (resultIds.length === 0) {
+    return;
   }
 
-  const notifiedResultIds = new Set(
-    (existingNotifications.data ?? [])
-      .map((item) => item.source_id)
-      .filter((item): item is string => typeof item === "string"),
-  );
+  const { data: notifications, error: notificationsError } = await admin
+    .from("notifications")
+    .select("id, user_id, title, body, email_status, source_id")
+    .eq("source_type", MATCH_SOURCE_TYPE)
+    .eq("email_status", "pending")
+    .in("source_id", resultIds);
 
-  const userIds = [...new Set((results ?? []).map((item) => item.user_id))];
-  const { data: userSettings, error: userSettingsError } = userIds.length
-    ? await admin
-        .from("app_users")
-        .select("id, notify_match_result")
-        .in("id", userIds)
-    : { data: [], error: null };
-
-  if (userSettingsError) {
-    throw userSettingsError;
+  if (notificationsError) {
+    throw notificationsError;
   }
 
-  const settingsMap = new Map(
-    (userSettings ?? []).map((item) => [item.id, item.notify_match_result]),
-  );
+  for (const notification of notifications ?? []) {
+    try {
+      const authResult = await admin.auth.admin.getUserById(notification.user_id);
+      const email = authResult.data.user?.email ?? null;
 
-  for (const result of results ?? []) {
-    if (notifiedResultIds.has(result.id)) {
-      continue;
-    }
+      if (!email) {
+        await admin
+          .from("notifications")
+          .update({ email_status: "failed", emailed_at: null })
+          .eq("id", notification.id);
+        continue;
+      }
 
-    const title = "本周匹配结果已发布";
-    const body =
-      result.status === "matched"
-        ? "你的本周匹配结果已经发布，进入站内即可查看理由并决定是否联系。"
-        : "你的本周匹配结果已经发布，本轮暂未形成匹配。";
+      const emailResult = await sendTransactionalEmail({
+        to: email,
+        subject: notification.title,
+        text: notification.body,
+      });
 
-    const wantsEmail = settingsMap.get(result.user_id) ?? false;
-    const { data: insertedNotification, error: notificationInsertError } =
       await admin
         .from("notifications")
-        .insert({
-          user_id: result.user_id,
-          category: MATCH_SOURCE_TYPE,
-          title,
-          body,
-          level: result.status === "matched" ? "success" : "info",
-          source_type: MATCH_SOURCE_TYPE,
-          source_id: result.id,
-          email_status: wantsEmail ? "pending" : "not_needed",
+        .update({
+          email_status: emailResult.ok ? "sent" : "failed",
+          emailed_at: emailResult.ok ? new Date().toISOString() : null,
         })
-        .select("id")
-        .single();
-
-    if (notificationInsertError) {
-      throw notificationInsertError;
-    }
-
-    if (!wantsEmail) {
-      continue;
-    }
-
-    const authResult = await admin.auth.admin.getUserById(result.user_id);
-    const email = authResult.data.user?.email ?? null;
-
-    if (!email) {
+        .eq("id", notification.id);
+    } catch (error) {
       await admin
         .from("notifications")
-        .update({ email_status: "failed" })
-        .eq("id", insertedNotification.id);
-      continue;
+        .update({ email_status: "failed", emailed_at: null })
+        .eq("id", notification.id);
+
+      await writeOperationLog({
+        actionType: "batch_publish_email_failed",
+        entityId: batchId,
+        payloadJson: {
+          notification_id: notification.id,
+          error_message: getErrorMessage(error),
+        },
+      });
     }
+  }
+}
 
-    const emailResult = await sendTransactionalEmail({
-      to: email,
-      subject: title,
-      text: body,
-    });
+export async function lockBatch(batchId: string) {
+  const admin = createAdminSupabaseClient();
+  const nowIso = new Date().toISOString();
+  const batch = await fetchBatch(batchId);
 
-    await admin
-      .from("notifications")
-      .update({
-        email_status: emailResult.ok ? "sent" : "failed",
-        emailed_at: emailResult.ok ? nowIso : null,
-      })
-      .eq("id", insertedNotification.id);
+  if (batch.status !== "open") {
+    throw new Error("只有 open 批次可以锁定。");
   }
 
-  const { error: batchUpdateError } = await admin
+  const { error: updateError } = await admin
     .from("match_batches")
     .update({
-      status: "published",
-      published_at: nowIso,
+      status: "locked",
+      last_error_message: null,
     })
-    .eq("id", batchId);
+    .eq("id", batchId)
+    .eq("status", "open");
 
-  if (batchUpdateError) {
-    throw batchUpdateError;
+  if (updateError) {
+    throw updateError;
   }
 
-  await admin.from("operation_logs").insert({
-    actor_role: SYSTEM_ACTOR_ROLE,
-    action_type: "batch_published",
-    entity_type: "match_batch",
-    entity_id: batchId,
-    payload_json: {
-      published_at: nowIso,
-    },
+  await lockJoinedParticipations(batchId, nowIso);
+  await writeOperationLog({
+    actionType: "batch_locked",
+    entityId: batchId,
   });
 }
 
-export async function runBatchLifecycle() {
+async function processClaimedBatch(batch: BatchProcessRow) {
   const admin = createAdminSupabaseClient();
-  const nowIso = new Date().toISOString();
 
-  const lockedBatchIds = await lockExpiredOpenBatches(nowIso);
+  try {
+    const nowIso = new Date().toISOString();
+    const matchingPolicy = matchingPolicySchema.parse(
+      batch.matching_policy_snapshot_json,
+    );
 
-  const { data: batchesToProcess, error: batchesToProcessError } = await admin
-    .from("match_batches")
-    .select("id, questionnaire_version_id")
-    .in("status", ["locked", "processing"])
-    .is("processed_at", null)
-    .lte("match_run_at", nowIso);
+    await lockJoinedParticipations(batch.id, nowIso);
 
-  if (batchesToProcessError) {
-    throw batchesToProcessError;
+    const [participants, questions] = await Promise.all([
+      getParticipants({
+        batchId: batch.id,
+        questionnaireVersionId: batch.questionnaire_version_id,
+      }),
+      getMatchingQuestions(batch.questionnaire_version_id),
+    ]);
+
+    await deleteMatchResultNotificationsForBatch(batch.id);
+
+    const { error: deleteResultsError } = await admin
+      .from("match_results")
+      .delete()
+      .eq("batch_id", batch.id);
+
+    if (deleteResultsError) {
+      throw deleteResultsError;
+    }
+
+    const { error: deletePairsError } = await admin
+      .from("match_pairs")
+      .delete()
+      .eq("batch_id", batch.id);
+
+    if (deletePairsError) {
+      throw deletePairsError;
+    }
+
+    const pairCandidates = buildPairCandidates({
+      matchingPolicy,
+      participants,
+      questions,
+    });
+
+    const { selected, usedParticipationIds } = selectGreedyPairs(pairCandidates);
+
+    if (selected.length > 0) {
+      const pairRows = selected.map((candidate) => {
+        const ordered =
+          candidate.left.participationId < candidate.right.participationId
+            ? candidate
+            : {
+                ...candidate,
+                left: candidate.right,
+                right: candidate.left,
+              };
+
+        return {
+          id: randomUUID(),
+          batch_id: batch.id,
+          left_participation_id: ordered.left.participationId,
+          left_user_id: ordered.left.userId,
+          right_participation_id: ordered.right.participationId,
+          right_user_id: ordered.right.userId,
+        };
+      });
+
+      const { error: pairInsertError } = await admin
+        .from("match_pairs")
+        .insert(pairRows);
+
+      if (pairInsertError) {
+        throw pairInsertError;
+      }
+
+      const pairIdByParticipants = new Map(
+        pairRows.map((row) => [
+          `${row.left_participation_id}:${row.right_participation_id}`,
+          row.id,
+        ]),
+      );
+
+      const resultRows = selected.flatMap((candidate) => {
+        const ordered =
+          candidate.left.participationId < candidate.right.participationId
+            ? candidate
+            : {
+                ...candidate,
+                left: candidate.right,
+                right: candidate.left,
+              };
+        const pairId = pairIdByParticipants.get(
+          `${ordered.left.participationId}:${ordered.right.participationId}`,
+        );
+
+        if (!pairId) {
+          return [];
+        }
+
+        return [
+          {
+            id: randomUUID(),
+            batch_id: batch.id,
+            user_id: candidate.left.userId,
+            participation_id: candidate.left.participationId,
+            match_pair_id: pairId,
+            status: "matched" as const,
+            counterpart_snapshot_json: buildCounterpartSnapshot(
+              candidate.right.profileSnapshot,
+            ),
+            score: candidate.score,
+            preview_text: candidate.previewText,
+            reasons: candidate.reasons,
+            shared_signals: candidate.sharedSignals,
+            released_at: null,
+          },
+          {
+            id: randomUUID(),
+            batch_id: batch.id,
+            user_id: candidate.right.userId,
+            participation_id: candidate.right.participationId,
+            match_pair_id: pairId,
+            status: "matched" as const,
+            counterpart_snapshot_json: buildCounterpartSnapshot(
+              candidate.left.profileSnapshot,
+            ),
+            score: candidate.score,
+            preview_text: candidate.previewText,
+            reasons: candidate.reasons,
+            shared_signals: candidate.sharedSignals,
+            released_at: null,
+          },
+        ];
+      });
+
+      const { error: resultInsertError } = await admin
+        .from("match_results")
+        .insert(resultRows);
+
+      if (resultInsertError) {
+        throw resultInsertError;
+      }
+    }
+
+    const unmatchedRows = participants
+      .filter((participant) => !usedParticipationIds.has(participant.participationId))
+      .map((participant) => ({
+        id: randomUUID(),
+        batch_id: batch.id,
+        user_id: participant.userId,
+        participation_id: participant.participationId,
+        match_pair_id: null,
+        status: "unmatched" as const,
+        counterpart_snapshot_json: null,
+        score: null,
+        preview_text: "No match this round.",
+        reasons: null,
+        shared_signals: null,
+        released_at: null,
+      }));
+
+    if (unmatchedRows.length > 0) {
+      const { error: unmatchedInsertError } = await admin
+        .from("match_results")
+        .insert(unmatchedRows);
+
+      if (unmatchedInsertError) {
+        throw unmatchedInsertError;
+      }
+    }
+
+    const { error: completeError } = await admin
+      .from("match_batches")
+      .update({
+        status: "processing",
+        processed_at: nowIso,
+        last_error_message: null,
+      })
+      .eq("id", batch.id);
+
+    if (completeError) {
+      throw completeError;
+    }
+
+    await writeOperationLog({
+      actionType: "batch_processed",
+      entityId: batch.id,
+      payloadJson: {
+        matched_pair_count: selected.length,
+        unmatched_count: unmatchedRows.length,
+      },
+    });
+  } catch (error) {
+    await markBatchFailed({
+      actionType: "batch_process_failed",
+      batchId: batch.id,
+      error,
+    });
+    throw error;
+  }
+}
+
+export async function processBatch(batchId: string) {
+  const batch = await claimBatchForProcessing({
+    batchId,
+    fromStatus: "locked",
+  });
+
+  if (!batch) {
+    return false;
   }
 
-  const processedBatchIds: string[] = [];
-  for (const batch of batchesToProcess ?? []) {
-    await processBatch(batch);
-    processedBatchIds.push(batch.id);
+  await processClaimedBatch(batch);
+  return true;
+}
+
+export async function publishBatch(batchId: string) {
+  const admin = createAdminSupabaseClient();
+  const batch = await fetchBatch(batchId);
+
+  if (batch.status === "published") {
+    throw new Error("已发布批次不能重复发布。");
   }
 
-  const { data: batchesToPublish, error: batchesToPublishError } = await admin
+  try {
+    const { error: publishError } = await admin.rpc("publish_match_batch", {
+      p_batch_id: batchId,
+    });
+
+    if (publishError) {
+      throw publishError;
+    }
+  } catch (error) {
+    await markBatchFailed({
+      actionType: "batch_publish_failed",
+      batchId,
+      error,
+    });
+    throw error;
+  }
+
+  try {
+    await syncPendingMatchResultEmails(batchId);
+  } catch (error) {
+    await writeOperationLog({
+      actionType: "batch_publish_email_sync_failed",
+      entityId: batchId,
+      payloadJson: {
+        error_message: getErrorMessage(error),
+      },
+    });
+  }
+}
+
+export async function rerunFailedBatch(batchId: string) {
+  const batch = await claimBatchForProcessing({
+    batchId,
+    fromStatus: "failed",
+  });
+
+  if (!batch) {
+    return false;
+  }
+
+  await processClaimedBatch(batch);
+  return true;
+}
+
+export async function resetInterruptedBatch(batchId: string) {
+  const admin = createAdminSupabaseClient();
+  const errorMessage = "批次处理过程中断，已由管理员重置为 failed，请重新执行匹配。";
+
+  const { data, error } = await admin
     .from("match_batches")
-    .select("id")
+    .update({
+      status: "failed",
+      last_error_message: errorMessage,
+    })
+    .eq("id", batchId)
     .eq("status", "processing")
-    .not("processed_at", "is", null)
-    .lte("result_publish_at", nowIso);
+    .is("processed_at", null)
+    .select("id")
+    .maybeSingle();
 
-  if (batchesToPublishError) {
-    throw batchesToPublishError;
+  if (error) {
+    throw error;
   }
 
-  const publishedBatchIds: string[] = [];
-  for (const batch of batchesToPublish ?? []) {
-    await publishBatch(batch.id);
-    publishedBatchIds.push(batch.id);
+  if (!data) {
+    return false;
   }
 
-  return {
-    lockedBatchIds,
-    processedBatchIds,
-    publishedBatchIds,
-  } satisfies BatchRunSummary;
+  await writeOperationLog({
+    actionType: "batch_processing_reset",
+    entityId: batchId,
+    payloadJson: {
+      error_message: errorMessage,
+    },
+  });
+
+  return true;
 }

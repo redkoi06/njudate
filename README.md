@@ -52,7 +52,6 @@ npm run dev
 - `SMTP_PASSWORD`: 业务邮件 SMTP 密码
 - `SMTP_FROM_EMAIL`: 业务邮件发件地址
 - `SMTP_FROM_NAME`: 业务邮件发件人名称，可选
-- `CRON_SECRET`: Vercel Cron Jobs 自动附带到 `Authorization: Bearer ...` 的密钥
 
 ## 常用命令
 
@@ -67,6 +66,30 @@ npm run format:check
 npm run supabase:start
 npm run supabase:stop
 npm run supabase:reset
+npm run supabase:types
+```
+
+## 运营运行方式
+
+- 批次生命周期完全由管理员手动推进，不存在 Cron，也不存在内部自动跑批入口。
+- 标准运行链路为：管理员手动锁定报名 -> 手动执行匹配 -> 手动发布结果。
+- 若批次执行失败，只能由管理员手动重跑。
+- 若批次卡在 `processing + processed_at = null`，必须先在后台手动重置为 `failed`，再重新执行匹配。
+
+## 部署检查
+
+部署前至少执行：
+
+```bash
+npm run lint
+npm run typecheck
+npm run test
+```
+
+如果本次改动包含新的 migration，还需要执行：
+
+```bash
+supabase db push
 npm run supabase:types
 ```
 

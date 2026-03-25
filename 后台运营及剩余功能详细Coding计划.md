@@ -24,7 +24,7 @@
 - 批次和结果底层 schema 已经存在：`match_batches`、`batch_participations`、`match_pairs`、`match_results`。
 - 问卷 draft / submit RPC 已经存在：`save_questionnaire_draft`、`submit_questionnaire`。
 - 匹配批次跑批骨架已经存在：`src/lib/matching/batch-runner.ts`。
-- 定时入口已经存在：`src/app/api/internal/batch-runner/route.ts`。
+- 当前批次生命周期已收敛为纯管理员手动推进；不再保留定时入口、Cron 调度或 secret 内部接口。
 - 管理员角色字段和 RLS 基础已经存在：`app_users.role`、`public.is_admin()`、多张表 admin policy。
 - 公告、通知、操作日志表已经存在：`announcements`、`notifications`、`operation_logs`。
 - `service_requests` 相关旧逻辑仍在仓库和 schema 中，但本轮不再继续扩展，后续实现应直接删除这套工单链路；`/contact` 仅保留为静态联系方式看板。
@@ -190,13 +190,14 @@
 唯一计算中心：
 
 - 核心计算逻辑：`src/lib/matching/batch-runner.ts`
-- 定时入口：`src/app/api/internal/batch-runner/route.ts`
+- 人工触发入口：后台批次页通过 server action 手动推进批次状态
 
 固定责任划分：
 
 - `processBatch(batch)` 负责读取已锁定参与者、问卷答案、计算配对、写入 `match_pairs` 和 `match_results`。
 - `publishBatch(batchId)` 负责释放结果、生成通知、发邮件。
-- `runBatchLifecycle()` 负责整轮调度：锁定到期批次、执行匹配、发布结果。
+- `resetInterruptedBatch(batchId)` 负责把 `processing + processed_at = null` 的中断批次重置回 `failed`，供管理员重新处理。
+- 系统不保留自动调度器；批次从锁定、计算到发布全部由管理员在后台手动推进。
 
 本轮不改匹配算法方向，只补齐运营可用性：
 
@@ -281,6 +282,8 @@
 - 用户点击删除账号后，必须先弹出二次确认；只有再次确认后才真正执行。
 - 删号不做物理删除，固定采用软删除。
 - 软删除执行后，必须禁止该账号再次登录，但保留其业务历史数据、历史问卷、历史匹配结果、通知与操作日志。
+- 如果删号流程中的认证侧禁登失败，则本次删号整体视为失败；系统必须回滚本次软删除和相关 open 批次退出，让账号状态与相关业务状态恢复到删号前。
+- 也就是说，删号失败时，不允许留下“业务侧已删除、认证侧未禁登”这样的半完成状态。
 - 后台用户管理页只负责查看用户状态，不再承担“管理员手动删号”这条主链路。
 
 “联系我们”与工单相关的固定结论如下：
@@ -663,6 +666,7 @@
   - 立即执行匹配
   - 立即公布结果
   - 失败后重新运行
+  - 处理中断且尚未完成的批次可先重置为 `failed`，再由管理员手动重跑
 - 详情页：
   - 展示参与人数、锁定人数、已生成 pair 数、未匹配人数
   - 展示最近操作日志
@@ -674,18 +678,19 @@
 
 跑批逻辑处理要求：
 
-- 自动跑批仍走 `src/app/api/internal/batch-runner/route.ts` + Vercel Cron。
-- 手动跑批也必须复用 `src/lib/matching/batch-runner.ts` 的同一套核心函数。
+- 不再保留 `src/app/api/internal/batch-runner/route.ts`、Vercel Cron 或 `CRON_SECRET` 这类自动调度链路。
+- 跑批只能由管理员在后台手动启动，失败后也只能由管理员手动重跑。
+- 后台手动跑批必须复用 `src/lib/matching/batch-runner.ts` 的同一套核心函数。
 - 不允许后台再写一套独立匹配逻辑。
 - 真正执行比较和打分时，必须读取 batch 上冻结的 `matching_policy_snapshot_json`，交给固定通用匹配引擎执行。
 - 不允许 batch 在运行时回头读取“当前最新问卷版本规则”。
 - 已 `published` 的批次不允许重跑，结果永久保留在数据库中。
 - 批次失败后不允许静默跳过，必须停在 `failed` 并等待管理员修复后手动重跑。
+- 如果批次停在 `processing` 且 `processed_at` 仍为 `null`，必须提供唯一的管理员恢复入口，将其重置为 `failed` 后再手动重跑。
 
 需要补强的点：
 
-- `runBatchLifecycle()` 增加错误捕获与失败状态回写。
-- `processBatch()` / `publishBatch()` 出错时，把批次状态更新为 `failed`，写入失败原因和操作日志。
+- `processBatch()` / `publishBatch()` / `resetInterruptedBatch()` 出错时，必须把状态变化、失败原因和操作日志回写完整。
 - 把现有零散得分逻辑统一收口，不要让匹配公式同时散落在多个 helper 里。
 - 后台必须能区分“尚未到计算时间”“计算中”“计算成功”“计算失败”。
 - 把现有比较逻辑收敛成一套固定通用引擎，由 `matchingPolicy` 驱动资料过滤、资料计分和问卷计分。
@@ -694,7 +699,7 @@
 验收标准：
 
 - 后台能独立创建和推进一个完整批次。
-- 定时和手动操作走的是同一套核心逻辑。
+- 所有批次推进动作都由后台手动触发，且统一复用同一套核心逻辑。
 - 运营能明确看到当前批次的截止时间、计算时间、结果发布时间。
 - 历史批次按自己的 policy snapshot 复跑时，结果口径不受新版本问卷影响。
 - 最低匹配阈值生效后，不会为了提高配对率强行输出低质量匹配。
@@ -768,6 +773,7 @@
 - 用户可以从界面上理解自己为什么被要求重新填写问卷。
 - 后台发布动作完成后，用户状态、首页、参与页、问卷页文案一致。
 - 用户可以自助完成删号，且删号后不能再次登录，但历史数据仍保留。
+- 如果删号失败，账号状态和相关业务状态必须回滚恢复原样，不能停在半完成状态。
 
 ### Phase 7. 测试、部署与运行方式
 
@@ -787,18 +793,20 @@
 - 批次 `matching_policy_snapshot_json` 冻结测试
 - 批次计算成功 / 失败状态测试
 - 批次失败后可重跑、已发布后不可重跑测试
+- 批次处理中断后可手动重置为 `failed` 并再次重跑测试
 - 问卷题型白名单与 `text` 清理测试
 - 固定通用匹配引擎测试
 - 异性过滤与最低匹配阈值测试
 - 后台权限测试
 - 删号 action 测试
+- 删号失败后的回滚恢复原样测试
 - 联系我们静态看板测试
 
 运行链路：
 
-- Vercel Cron 定时调用 `/api/internal/batch-runner`
-- 使用 `CRON_SECRET` 保护内部接口
-- 手动后台操作不调用 secret 接口，而是通过 server action 直接走同一核心函数
+- 管理员在后台批次详情页手动推进报名锁定、执行匹配、发布结果和失败后重跑
+- 后台 server action 直接调用 `src/lib/matching/batch-runner.ts` 的核心函数
+- 不再保留 `/api/internal/batch-runner`、Vercel Cron 或 `CRON_SECRET` 这类自动调度链路
 
 部署前检查：
 
@@ -844,7 +852,6 @@
 - `src/app/register/page.tsx`
 - `src/app/auth/confirm/route.ts`
 - `src/lib/matching/batch-runner.ts`
-- `src/app/api/internal/batch-runner/route.ts`
 - `src/types/database.generated.ts`
 
 是否需要 migration：

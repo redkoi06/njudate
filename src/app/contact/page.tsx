@@ -1,50 +1,37 @@
 import { PublicShell } from "@/components/site-shell";
-import { Badge, Button, Field, SectionHeader, SurfaceCard, TextArea } from "@/components/site-ui";
-import { createContactRequestAction } from "@/features/app/actions";
+import { SectionHeader, SurfaceCard } from "@/components/site-ui";
 import { getOptionalSessionUser } from "@/lib/auth/session";
 
-export default async function ContactPage({
-  searchParams,
-}: {
-  searchParams?: Promise<Record<string, string | string[] | undefined>>;
-}) {
-  const [user, resolvedSearchParams] = await Promise.all([
-    getOptionalSessionUser(),
-    searchParams,
-  ]);
-  const submitted = resolvedSearchParams?.submitted === "1";
+export default async function ContactPage() {
+  const user = await getOptionalSessionUser();
 
   return (
     <PublicShell signedIn={Boolean(user)} activePublicNavHref="/contact">
-      <section className="mx-auto max-w-4xl px-5 pt-14 pb-10 md:px-8 md:pb-12">
-        <SurfaceCard>
-          <SectionHeader
-            eyebrow="联系我们"
-            title="遇到问题、反馈建议，或者想补充说明，都可以从这里提交。"
-            description="这里适合咨询、建议、问题反馈和一般性说明；如果是紧急或高风险问题，请同步使用你更可靠的线下渠道。"
-            action={submitted ? <Badge tone="success">已提交</Badge> : null}
-          />
-          <form
-            action={createContactRequestAction}
-            className="mt-8 grid gap-5"
-          >
-            <div className="grid gap-5 md:grid-cols-2">
-              <Field name="senderName" label="称呼" required />
-              <Field
-                name="senderEmail"
-                label="可回复邮箱"
-                type="email"
-                defaultValue={user?.email ?? ""}
-                required
-              />
+      <section className="mx-auto max-w-4xl px-5 pb-10 pt-14 md:px-8 md:pb-12">
+        <div className="grid gap-6">
+          <SurfaceCard>
+            <SectionHeader
+              eyebrow="联系我们"
+              title="当前版本不再提供站内工单入口。"
+              description="这里仅保留联系说明与使用边界。如果你遇到高风险、线下安全或紧急求助问题，请优先使用你更可靠的线下渠道。"
+            />
+          </SurfaceCard>
+
+          <SurfaceCard>
+            <h2 className="text-2xl">联系说明</h2>
+            <div className="text-secondary-foreground/80 mt-5 grid gap-3 text-sm leading-7">
+              <p className="border-border rounded-2xl border p-4">
+                平台不再接收站内咨询工单，也不再提供数据导出申请或工单式删号入口。
+              </p>
+              <p className="border-border rounded-2xl border p-4">
+                如需停止使用，请登录后前往设置页，按二次确认流程直接删除账号。
+              </p>
+              <p className="border-border rounded-2xl border p-4">
+                如遇现实风险、骚扰、心理压力或其他需要即时处理的情况，请直接联系你信任的老师、同学、辅导员或校内线下支持渠道。
+              </p>
             </div>
-            <Field name="topic" label="主题" required />
-            <TextArea name="message" label="内容" required />
-            <div className="flex justify-end">
-              <Button type="submit">提交咨询</Button>
-            </div>
-          </form>
-        </SurfaceCard>
+          </SurfaceCard>
+        </div>
       </section>
     </PublicShell>
   );

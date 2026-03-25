@@ -4,11 +4,11 @@ import {
   joinCurrentBatchAction,
 } from "@/features/app/actions";
 import { getParticipationState } from "@/features/app/data";
-import { requireSessionUser } from "@/lib/auth/session";
+import { requireAppUser } from "@/lib/auth/session";
 import { formatDateTime, getParticipationStatusLabel } from "@/lib/site";
 
 export default async function ParticipationPage() {
-  const user = await requireSessionUser();
+  const user = await requireAppUser();
   const participation = await getParticipationState(user.id);
 
   return (
@@ -18,7 +18,7 @@ export default async function ParticipationPage() {
         title={participation.label ?? "当前没有开放批次"}
         description={
           participation.label
-            ? `报名截止：${formatDateTime(participation.signupEndAt)}，结果公布：${formatDateTime(participation.matchRunAt)}。`
+            ? `报名截止：${formatDateTime(participation.signupEndAt)}，匹配计算：${formatDateTime(participation.matchRunAt)}，结果公布：${formatDateTime(participation.resultPublishAt)}。`
             : "当新的匹配批次开放后，你可以在这里决定本周是否加入。"
         }
       />
