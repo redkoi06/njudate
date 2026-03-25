@@ -4,6 +4,10 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
+import {
+  REGISTRATION_OPEN_CONFIG_KEY,
+  REGISTRATION_OPEN_DESCRIPTION,
+} from "@/lib/auth/registration";
 import { requireAdminUser } from "@/lib/auth/session";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import type { Json } from "@/types/database.generated";
@@ -36,6 +40,7 @@ function redirectWithMessage(
 
 async function logConfigOperation(input: {
   actorUserId: string;
+  configKey: string;
   payloadJson?: Json;
 }) {
   const admin = createAdminSupabaseClient();
@@ -44,7 +49,7 @@ async function logConfigOperation(input: {
     actor_user_id: input.actorUserId,
     action_type: "config_updated",
     entity_type: "app_config",
-    entity_id: "match_schedule_text",
+    entity_id: input.configKey,
     payload_json: input.payloadJson ?? null,
   });
 
@@ -87,6 +92,7 @@ export async function updateMatchScheduleTextAction(formData: FormData) {
 
   await logConfigOperation({
     actorUserId: actor.id,
+    configKey: "match_schedule_text",
     payloadJson: {
       config_key: "match_schedule_text",
       value: payload.value,
@@ -96,5 +102,43 @@ export async function updateMatchScheduleTextAction(formData: FormData) {
   revalidatePath("/");
   revalidatePath("/admin");
   revalidatePath("/admin/configs");
+  revalidatePath("/login");
+  revalidatePath("/register");
+  redirect("/admin/configs");
+}
+
+export async function updateRegistrationOpenAction(formData: FormData) {
+  const actor = await requireAdminUser();
+  const admin = createAdminSupabaseClient();
+  const value = formData.get("registrationOpen") === "on";
+  const { error } = await admin.from("app_configs").upsert(
+    {
+      config_key: REGISTRATION_OPEN_CONFIG_KEY,
+      description: REGISTRATION_OPEN_DESCRIPTION,
+      updated_at: new Date().toISOString(),
+      updated_by: actor.id,
+      value_json: value,
+    },
+    {
+      onConflict: "config_key",
+    },
+  );
+
+  if (error) {
+    throw error;
+  }
+
+  await logConfigOperation({
+    actorUserId: actor.id,
+    configKey: REGISTRATION_OPEN_CONFIG_KEY,
+    payloadJson: {
+      config_key: REGISTRATION_OPEN_CONFIG_KEY,
+      value,
+    },
+  });
+
+  revalidatePath("/admin/configs");
+  revalidatePath("/login");
+  revalidatePath("/register");
   redirect("/admin/configs");
 }

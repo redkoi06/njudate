@@ -18,6 +18,7 @@ import {
   signInSchema,
   signUpSchema,
 } from "@/lib/auth/credentials";
+import { getRegistrationOpen } from "@/lib/auth/registration";
 import { getDefaultHomePathForRole } from "@/lib/auth/permissions";
 import { sendTransactionalEmail } from "@/lib/email/send";
 import { getPublicEnv } from "@/lib/env/client";
@@ -407,6 +408,10 @@ export async function registerUserAction(formData: FormData) {
       email: rawEmail,
       error: getAuthErrorMessage(payload.error, "请检查注册信息。"),
     });
+  }
+
+  if (!(await getRegistrationOpen())) {
+    redirect("/login");
   }
 
   const env = getPublicEnv();

@@ -1,14 +1,21 @@
 import { Button, SectionHeader, SurfaceCard, TextArea } from "@/components/site-ui";
-import { updateMatchScheduleTextAction } from "@/features/admin/configs/actions";
-import { getMatchScheduleConfig } from "@/features/admin/configs/data";
+import {
+  updateMatchScheduleTextAction,
+  updateRegistrationOpenAction,
+} from "@/features/admin/configs/actions";
+import {
+  getMatchScheduleConfig,
+  getRegistrationOpenConfig,
+} from "@/features/admin/configs/data";
 
 export default async function AdminConfigsPage({
   searchParams,
 }: {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const [config, resolvedSearchParams] = await Promise.all([
+  const [config, registrationOpenConfig, resolvedSearchParams] = await Promise.all([
     getMatchScheduleConfig(),
+    getRegistrationOpenConfig(),
     searchParams,
   ]);
   const error =
@@ -22,7 +29,7 @@ export default async function AdminConfigsPage({
         <SectionHeader
           eyebrow="平台配置"
           title="维护基础运营配置"
-          description="当前后台只开放 match_schedule_text，其他旧配置项不再提供编辑入口。"
+          description="当前后台只开放 match_schedule_text 与 registration_open，其他旧配置项不再提供编辑入口。"
         />
         {error ? (
           <div className="mt-6 rounded-2xl border border-[color:var(--status-warning)]/20 bg-[color:var(--status-warning-bg)] px-4 py-3 text-sm text-[color:var(--status-warning)]">
@@ -38,6 +45,26 @@ export default async function AdminConfigsPage({
           />
           <div className="flex justify-end">
             <Button type="submit">保存配置</Button>
+          </div>
+        </form>
+        <form action={updateRegistrationOpenAction} className="mt-8 grid gap-5">
+          <div className="border-border rounded-2xl border p-5">
+            <p className="text-sm">registration_open</p>
+            <p className="text-secondary-foreground/80 mt-3 text-sm leading-7">
+              {registrationOpenConfig.description}
+            </p>
+            <label className="mt-5 inline-flex items-center gap-3 text-sm">
+              <input
+                type="checkbox"
+                name="registrationOpen"
+                defaultChecked={registrationOpenConfig.value}
+                className="accent-primary size-4"
+              />
+              <span>开放注册</span>
+            </label>
+          </div>
+          <div className="flex justify-end">
+            <Button type="submit">保存注册开关</Button>
           </div>
         </form>
       </SurfaceCard>

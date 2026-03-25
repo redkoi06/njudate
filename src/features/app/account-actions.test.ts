@@ -4,12 +4,14 @@ const {
   redirectMock,
   createServerSupabaseClientMock,
   createAdminSupabaseClientMock,
+  getRegistrationOpenMock,
 } = vi.hoisted(() => ({
   redirectMock: vi.fn((url: string) => {
     throw new Error(`REDIRECT:${url}`);
   }),
   createServerSupabaseClientMock: vi.fn(),
   createAdminSupabaseClientMock: vi.fn(),
+  getRegistrationOpenMock: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({
@@ -42,6 +44,10 @@ vi.mock("@/features/app/data", () => ({
 
 vi.mock("@/lib/email/send", () => ({
   sendTransactionalEmail: vi.fn(),
+}));
+
+vi.mock("@/lib/auth/registration", () => ({
+  getRegistrationOpen: getRegistrationOpenMock,
 }));
 
 import {
@@ -105,6 +111,7 @@ describe("account actions", () => {
     redirectMock.mockClear();
     createServerSupabaseClientMock.mockReset();
     createAdminSupabaseClientMock.mockReset();
+    getRegistrationOpenMock.mockReset();
     listUsersMock.mockReset();
     signInWithPasswordMock.mockReset();
     signOutMock.mockReset();
@@ -123,6 +130,8 @@ describe("account actions", () => {
       },
       error: null,
     });
+
+    getRegistrationOpenMock.mockResolvedValue(true);
 
     createServerSupabaseClientMock.mockResolvedValue({
       auth: {
@@ -200,6 +209,35 @@ describe("account actions", () => {
 
     expect(getQueryParam(redirectUrl, "error")).toBe("账号已删除，无法登录。");
     expect(signInWithPasswordMock).not.toHaveBeenCalled();
+  });
+
+  it("allows a staff domain to continue through the login action", async () => {
+    const formData = new FormData();
+    formData.set("email", "admin@njudate.cn");
+    formData.set("password", "secret1");
+
+    listUsersMock.mockResolvedValue({
+      data: {
+        users: [],
+      },
+      error: null,
+    });
+    signInWithPasswordMock.mockResolvedValue({
+      data: {
+        user: {
+          id: "staff-user-1",
+        },
+      },
+      error: null,
+    });
+
+    const redirectUrl = await captureRedirect(signInWithPasswordAction(formData));
+
+    expect(signInWithPasswordMock).toHaveBeenCalledWith({
+      email: "admin@njudate.cn",
+      password: "secret1",
+    });
+    expect(redirectUrl).toBe("/app");
   });
 
   it("redirects back to settings when account deletion is rejected", async () => {

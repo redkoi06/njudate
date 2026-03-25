@@ -4,12 +4,14 @@ const {
   redirectMock,
   createServerSupabaseClientMock,
   createAdminSupabaseClientMock,
+  getRegistrationOpenMock,
 } = vi.hoisted(() => ({
   redirectMock: vi.fn((url: string) => {
     throw new Error(`REDIRECT:${url}`);
   }),
   createServerSupabaseClientMock: vi.fn(),
   createAdminSupabaseClientMock: vi.fn(),
+  getRegistrationOpenMock: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({
@@ -38,6 +40,10 @@ vi.mock("@/features/app/data", () => ({
 
 vi.mock("@/lib/email/send", () => ({
   sendTransactionalEmail: vi.fn(),
+}));
+
+vi.mock("@/lib/auth/registration", () => ({
+  getRegistrationOpen: getRegistrationOpenMock,
 }));
 
 import { registerUserAction } from "@/features/app/actions";
@@ -82,6 +88,7 @@ describe("registerUserAction", () => {
     redirectMock.mockClear();
     createServerSupabaseClientMock.mockReset();
     createAdminSupabaseClientMock.mockReset();
+    getRegistrationOpenMock.mockReset();
     listUsersMock.mockReset();
     signUpMock.mockReset();
     resendMock.mockReset();
@@ -89,6 +96,8 @@ describe("registerUserAction", () => {
     eqMock.mockReset();
     selectMock.mockReset();
     fromMock.mockReset();
+
+    getRegistrationOpenMock.mockResolvedValue(true);
 
     maybeSingleMock.mockResolvedValue({
       data: { account_status: "active" },
@@ -133,6 +142,29 @@ describe("registerUserAction", () => {
     expect(getQueryParam(url, "email")).toBe(email);
     expect(getQueryParam(url, "sent")).toBe("1");
     expect(signUpMock).toHaveBeenCalledTimes(1);
+    expect(resendMock).not.toHaveBeenCalled();
+  });
+
+  it("redirects to login when registration is closed", async () => {
+    getRegistrationOpenMock.mockResolvedValue(false);
+
+    const redirectUrl = await captureRedirectUrl(createRegisterFormData(email));
+
+    expect(redirectUrl).toBe("/login");
+    expect(listUsersMock).not.toHaveBeenCalled();
+    expect(signUpMock).not.toHaveBeenCalled();
+    expect(resendMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a staff domain for public registration", async () => {
+    const redirectUrl = await captureRedirectUrl(
+      createRegisterFormData("admin@njudate.cn"),
+    );
+
+    expect(getQueryParam(redirectUrl, "email")).toBe("admin@njudate.cn");
+    expect(getQueryParam(redirectUrl, "error")).toBe("请使用南大邮箱注册");
+    expect(listUsersMock).not.toHaveBeenCalled();
+    expect(signUpMock).not.toHaveBeenCalled();
     expect(resendMock).not.toHaveBeenCalled();
   });
 

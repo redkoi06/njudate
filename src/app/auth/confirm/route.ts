@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+import { getRegistrationOpen } from "@/lib/auth/registration";
 import { getDefaultHomePathForRole } from "@/lib/auth/permissions";
 import { getPublicEnv } from "@/lib/env/client";
 import type { Database } from "@/types/database.generated";
@@ -25,6 +26,10 @@ export async function GET(request: NextRequest) {
         env.NEXT_PUBLIC_SITE_URL,
       ),
     );
+  }
+
+  if (!(await getRegistrationOpen())) {
+    return NextResponse.redirect(new URL("/login", env.NEXT_PUBLIC_SITE_URL));
   }
 
   let response = NextResponse.redirect(new URL("/app", env.NEXT_PUBLIC_SITE_URL));

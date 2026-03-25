@@ -5,6 +5,7 @@ import { allowedEmailDomainsLabel } from "@/lib/auth/credentials";
 import { PublicShell } from "@/components/site-shell";
 import { ButtonLink, SectionHeader, SurfaceCard } from "@/components/site-ui";
 import { registerUserAction } from "@/features/app/actions";
+import { getRegistrationOpen } from "@/lib/auth/registration";
 import { getCurrentSessionHomePath, getOptionalSessionUser } from "@/lib/auth/session";
 
 export default async function RegisterPage({
@@ -12,13 +13,18 @@ export default async function RegisterPage({
 }: {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const [user, resolvedSearchParams] = await Promise.all([
+  const [user, registrationOpen, resolvedSearchParams] = await Promise.all([
     getOptionalSessionUser(),
+    getRegistrationOpen(),
     searchParams,
   ]);
 
   if (user) {
     redirect(await getCurrentSessionHomePath());
+  }
+
+  if (!registrationOpen) {
+    redirect("/login");
   }
 
   const email =

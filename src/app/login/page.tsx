@@ -6,6 +6,7 @@ import loginBrandIcon from "../../../icon/icon.png";
 import { Button, Field } from "@/components/site-ui";
 import { signInWithPasswordAction } from "@/features/app/actions";
 import { getCurrentSessionHomePath, getOptionalSessionUser } from "@/lib/auth/session";
+import { getRegistrationOpen } from "@/lib/auth/registration";
 import { allowedEmailDomainsLabel } from "@/lib/auth/credentials";
 
 import { UserAgreementDialog } from "./user-agreement-dialog";
@@ -17,8 +18,9 @@ export default async function LoginPage({
 }: {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const [user, resolvedSearchParams] = await Promise.all([
+  const [user, registrationOpen, resolvedSearchParams] = await Promise.all([
     getOptionalSessionUser(),
+    getRegistrationOpen(),
     searchParams,
   ]);
 
@@ -144,12 +146,21 @@ export default async function LoginPage({
 
           <p className="text-secondary-foreground/78 mt-6 text-center text-sm">
             还没有账号？
-            <Link
-              href="/register"
-              className="text-primary ml-1 font-medium transition hover:text-[color:var(--wine-deep)]"
-            >
-              立即注册
-            </Link>
+            {registrationOpen ? (
+              <Link
+                href="/register"
+                className="text-primary ml-1 font-medium transition hover:text-[color:var(--wine-deep)]"
+              >
+                立即注册
+              </Link>
+            ) : (
+              <span
+                aria-disabled="true"
+                className="text-primary/55 ml-1 cursor-default font-medium"
+              >
+                立即注册
+              </span>
+            )}
           </p>
         </div>
       </main>

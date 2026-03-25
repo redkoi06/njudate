@@ -1,21 +1,27 @@
 import { z } from "zod";
 
-export const allowedEmailDomains = ["smail.nju.edu.cn"] as const;
-export const allowedEmailDomainsLabel = allowedEmailDomains.join(" 或 ");
+export const registrationEmailDomains = ["smail.nju.edu.cn"] as const;
+export const signInEmailDomains = ["smail.nju.edu.cn", "njudate.cn"] as const;
+export const allowedEmailDomainsLabel = registrationEmailDomains.join(" 或 ");
 export const minimumPasswordLength = 6;
 
-export const emailSchema = z
-  .string()
-  .trim()
-  .email("请输入有效邮箱")
-  .refine(
-    (value) =>
-      allowedEmailDomains.some((domain) =>
-        value.toLowerCase().endsWith(`@${domain}`),
-      ),
-    "请使用南大邮箱注册",
-  )
-  .transform((value) => value.toLowerCase());
+function createEmailSchema(allowedDomains: readonly string[]) {
+  return z
+    .string()
+    .trim()
+    .email("请输入有效邮箱")
+    .refine(
+      (value) =>
+        allowedDomains.some((domain) =>
+          value.toLowerCase().endsWith(`@${domain}`),
+        ),
+      "请使用南大邮箱注册",
+    )
+    .transform((value) => value.toLowerCase());
+}
+
+export const signInEmailSchema = createEmailSchema(signInEmailDomains);
+export const signUpEmailSchema = createEmailSchema(registrationEmailDomains);
 
 export const passwordSchema = z
   .string()
@@ -23,13 +29,13 @@ export const passwordSchema = z
   .min(minimumPasswordLength, `密码至少 ${minimumPasswordLength} 位`);
 
 export const signInSchema = z.object({
-  email: emailSchema,
+  email: signInEmailSchema,
   password: passwordSchema,
 });
 
 export const signUpSchema = z
   .object({
-    email: emailSchema,
+    email: signUpEmailSchema,
     password: passwordSchema,
     confirmPassword: z.string().trim().min(1, "请再次输入密码"),
   })
