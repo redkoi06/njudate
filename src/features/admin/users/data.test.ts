@@ -204,7 +204,7 @@ describe("listAdminUsers", () => {
       email: "user1@smail.nju.edu.cn",
       isAuthBanned: true,
       profileCompleted: true,
-      questionnaireStatusLabel: "当前版本已提交",
+      questionnaireStatusLabel: "已提交",
       recentParticipationBatchLabel: "第 1 轮",
       recentParticipationStatus: "joined",
     });
@@ -212,7 +212,7 @@ describe("listAdminUsers", () => {
       accountStatus: "deleted",
       isAuthBanned: false,
       profileCompleted: false,
-      questionnaireStatusLabel: "当前版本草稿未提交",
+      questionnaireStatusLabel: "草稿待提交",
       recentParticipationBatchLabel: "第 2 轮",
       recentParticipationStatus: "cancelled",
     });

@@ -18,9 +18,16 @@ import {
   processBatch,
   resetInterruptedBatch,
   rerunFailedBatch,
+  runBatchAutomationSweep,
 } from "@/lib/matching/batch-runner";
 
-type TestBatchStatus = "failed" | "locked" | "processing";
+type TestBatchStatus =
+  | "draft"
+  | "failed"
+  | "locked"
+  | "open"
+  | "processing"
+  | "published";
 
 const MATCHING_POLICY = {
   minimumPairScore: 60,
@@ -105,11 +112,11 @@ class FakeQuery {
 
   then<TResult1 = Awaited<ReturnType<FakeQuery["resolve"]>>, TResult2 = never>(
     onfulfilled?:
-      | ((value: Awaited<ReturnType<FakeQuery["resolve"]>>) => TResult1 | PromiseLike<TResult1>)
+      | ((
+          value: Awaited<ReturnType<FakeQuery["resolve"]>>,
+        ) => TResult1 | PromiseLike<TResult1>)
       | null,
-    onrejected?:
-      | ((reason: unknown) => TResult2 | PromiseLike<TResult2>)
-      | null,
+    onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
   ) {
     return this.resolve().then(onfulfilled, onrejected);
   }
@@ -139,8 +146,16 @@ class FakeQuery {
     )?.value;
   }
 
+  private getInValue(field: string) {
+    return this.filters.find(
+      (filter) => filter.kind === "in" && filter.field === field,
+    )?.value;
+  }
+
   private hasFilter(kind: FakeQuery["filters"][number]["kind"], field: string) {
-    return this.filters.some((filter) => filter.kind === kind && filter.field === field);
+    return this.filters.some(
+      (filter) => filter.kind === kind && filter.field === field,
+    );
   }
 
   private getIsValue(field: string) {
@@ -153,8 +168,14 @@ class FakeQuery {
     return {
       id: this.state.batch.id,
       label: this.state.batch.label,
+      last_error_message: this.state.batch.last_error_message,
+      match_run_at: this.state.batch.match_run_at,
       processed_at: this.state.batch.processed_at,
-      matching_policy_snapshot_json: this.state.batch.matching_policy_snapshot_json,
+      result_publish_at: this.state.batch.result_publish_at,
+      signup_end_at: this.state.batch.signup_end_at,
+      signup_start_at: this.state.batch.signup_start_at,
+      matching_policy_snapshot_json:
+        this.state.batch.matching_policy_snapshot_json,
       questionnaire_version_id: this.state.batch.questionnaire_version_id,
       status: this.state.batch.status,
     };
@@ -172,6 +193,7 @@ class FakeQuery {
   private async resolveMatchBatches() {
     if (this.action === "select") {
       const batchId = this.getEqValue("id");
+      const statuses = this.getInValue("status");
 
       if (typeof batchId === "string") {
         return {
@@ -180,7 +202,17 @@ class FakeQuery {
         };
       }
 
-      return { data: [], error: null };
+      if (
+        Array.isArray(statuses) &&
+        !statuses.includes(this.state.batch.status)
+      ) {
+        return { data: [], error: null };
+      }
+
+      return {
+        data: [this.pickBatchRow()],
+        error: null,
+      };
     }
 
     if (this.action === "update") {
@@ -249,10 +281,14 @@ function createBatchHarness(input: {
       id: "batch-1",
       label: "Round 1",
       last_error_message: null as string | null,
+      match_run_at: "2026-03-25T10:00:00.000Z",
       matching_policy_snapshot_json: MATCHING_POLICY,
       processed_at: input.initialProcessedAt ?? null,
       published_at: null as string | null,
       questionnaire_version_id: "version-1",
+      result_publish_at: "2026-03-25T11:00:00.000Z",
+      signup_end_at: "2026-03-25T09:00:00.000Z",
+      signup_start_at: "2026-03-25T08:00:00.000Z",
       status: input.initialStatus,
     },
     deletePairsCalls: 0,
@@ -286,10 +322,19 @@ function createBatchHarness(input: {
       return {
         delete: () => new FakeQuery(table, "delete", null, state),
         select: () => new FakeQuery(table, "select", null, state),
-        update: (payload: unknown) => new FakeQuery(table, "update", payload, state),
+        update: (payload: unknown) =>
+          new FakeQuery(table, "update", payload, state),
       };
     }),
-    rpc: vi.fn(),
+    rpc: vi.fn(async (fn: string) => {
+      if (fn === "publish_match_batch") {
+        state.batch.status = "published";
+        state.batch.published_at = "2026-03-25T12:00:00.000Z";
+        return { error: null };
+      }
+
+      return { error: null };
+    }),
   };
 
   return { client, state };
@@ -359,5 +404,42 @@ describe("batch runner", () => {
 
     expect(harness.state.batch.status).toBe("processing");
     expect(harness.state.operationLogs).toHaveLength(0);
+  });
+
+  it("advances a due draft batch through open, lock, process, and publish in one sweep", async () => {
+    const harness = createBatchHarness({
+      initialStatus: "draft",
+    });
+
+    createAdminSupabaseClientMock.mockReturnValue(harness.client);
+
+    const result = await runBatchAutomationSweep();
+
+    expect(result.results).toHaveLength(1);
+    expect(result.results[0]?.actions).toEqual([
+      "opened",
+      "locked",
+      "processed",
+      "published",
+    ]);
+    expect(harness.state.batch.status).toBe("published");
+    expect(harness.state.batch.processed_at).toBeTruthy();
+    expect(harness.state.deleteResultsCalls).toBe(1);
+    expect(harness.state.deletePairsCalls).toBe(1);
+  });
+
+  it("does not automatically rerun failed batches", async () => {
+    const harness = createBatchHarness({
+      initialStatus: "failed",
+    });
+
+    createAdminSupabaseClientMock.mockReturnValue(harness.client);
+
+    const result = await runBatchAutomationSweep();
+
+    expect(result.results).toHaveLength(0);
+    expect(harness.state.batch.status).toBe("failed");
+    expect(harness.state.deleteResultsCalls).toBe(0);
+    expect(harness.state.deletePairsCalls).toBe(0);
   });
 });

@@ -23,13 +23,7 @@ import {
 } from "@/features/admin/batches/data";
 import { formatDateTime, formatDateTimeInputValue } from "@/lib/site";
 
-function BatchMetric({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
+function BatchMetric({ label, value }: { label: string; value: string }) {
   return (
     <div className="border-border rounded-2xl border p-4">
       <p className="text-muted-foreground text-xs tracking-[0.2em]">{label}</p>
@@ -46,11 +40,12 @@ export default async function AdminBatchDetailPage({
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const resolvedParams = await params;
-  const [batch, publishedQuestionnaires, resolvedSearchParams] = await Promise.all([
-    getBatchDetail(resolvedParams.batchId),
-    listPublishedQuestionnaireOptions(),
-    searchParams,
-  ]);
+  const [batch, publishedQuestionnaires, resolvedSearchParams] =
+    await Promise.all([
+      getBatchDetail(resolvedParams.batchId),
+      listPublishedQuestionnaireOptions(),
+      searchParams,
+    ]);
 
   if (!batch) {
     notFound();
@@ -68,9 +63,15 @@ export default async function AdminBatchDetailPage({
           eyebrow={`批次详情 · 第 ${batch.roundNo} 轮`}
           title={`${batch.label} · ${batch.code}`}
           description={`当前状态 ${batch.status}，问卷版本 ${
-            batch.questionnaireVersionNo ? `V${batch.questionnaireVersionNo}` : batch.questionnaireVersionId
-          }。本页所有批次推进动作都需要管理员手动执行。`}
-          action={<ButtonLink href="/admin/batches" tone="ghost">返回列表</ButtonLink>}
+            batch.questionnaireVersionNo
+              ? `V${batch.questionnaireVersionNo}`
+              : batch.questionnaireVersionId
+          }。系统会按时间自动推进，本页按钮仅用于补做或异常恢复。`}
+          action={
+            <ButtonLink href="/admin/batches" tone="ghost">
+              返回列表
+            </ButtonLink>
+          }
         />
         {error ? (
           <div className="mt-6 rounded-2xl border border-[color:var(--status-warning)]/20 bg-[color:var(--status-warning-bg)] px-4 py-3 text-sm text-[color:var(--status-warning)]">
@@ -83,10 +84,19 @@ export default async function AdminBatchDetailPage({
           </p>
         ) : null}
         <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <BatchMetric label="报名人数" value={String(batch.participationCount)} />
+          <BatchMetric
+            label="报名人数"
+            value={String(batch.participationCount)}
+          />
           <BatchMetric label="已锁定人数" value={String(batch.lockedCount)} />
-          <BatchMetric label="已发布结果" value={String(batch.publishedResultCount)} />
-          <BatchMetric label="未匹配人数" value={String(batch.unmatchedCount)} />
+          <BatchMetric
+            label="已发布结果"
+            value={String(batch.publishedResultCount)}
+          />
+          <BatchMetric
+            label="未匹配人数"
+            value={String(batch.unmatchedCount)}
+          />
         </div>
       </SurfaceCard>
 
@@ -94,12 +104,24 @@ export default async function AdminBatchDetailPage({
         <SurfaceCard>
           <h2 className="text-2xl">时间窗口</h2>
           <div className="mt-5 grid gap-4 md:grid-cols-3">
-            <BatchMetric label="报名开始" value={formatDateTime(batch.signupStartAt)} />
-            <BatchMetric label="报名截止" value={formatDateTime(batch.signupEndAt)} />
-            <BatchMetric label="计算时间" value={formatDateTime(batch.matchRunAt)} />
+            <BatchMetric
+              label="报名开始"
+              value={formatDateTime(batch.signupStartAt)}
+            />
+            <BatchMetric
+              label="报名截止"
+              value={formatDateTime(batch.signupEndAt)}
+            />
+            <BatchMetric
+              label="计算时间"
+              value={formatDateTime(batch.matchRunAt)}
+            />
           </div>
           <div className="mt-4">
-            <BatchMetric label="结果发布时间" value={formatDateTime(batch.resultPublishAt)} />
+            <BatchMetric
+              label="结果发布时间"
+              value={formatDateTime(batch.resultPublishAt)}
+            />
           </div>
         </SurfaceCard>
 
@@ -107,7 +129,10 @@ export default async function AdminBatchDetailPage({
           <h2 className="text-2xl">Policy Snapshot 摘要</h2>
           <div className="mt-5 grid gap-3">
             {batch.matchingPolicySummary.map((item) => (
-              <div key={item} className="border-border rounded-2xl border p-4 text-sm">
+              <div
+                key={item}
+                className="border-border rounded-2xl border p-4 text-sm"
+              >
                 {item}
               </div>
             ))}
@@ -141,7 +166,14 @@ export default async function AdminBatchDetailPage({
                   defaultValue={batch.notes ?? ""}
                 />
               </div>
-              <div className="grid gap-5 md:grid-cols-3">
+              <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+                <Field
+                  name="signupStartAt"
+                  label="开始报名时间"
+                  type="datetime-local"
+                  defaultValue={formatDateTimeInputValue(batch.signupStartAt)}
+                  required
+                />
                 <Field
                   name="signupEndAt"
                   label="报名截止时间"
@@ -179,7 +211,8 @@ export default async function AdminBatchDetailPage({
           </>
         ) : (
           <p className="text-secondary-foreground/80 mt-4 text-sm leading-7">
-            只有 draft 批次允许编辑问卷版本和时间窗口。当前批次需要通过下方动作继续推进。
+            只有 draft
+            批次允许编辑问卷版本和时间窗口。当前批次需要通过下方动作继续推进。
           </p>
         )}
       </SurfaceCard>
@@ -187,7 +220,7 @@ export default async function AdminBatchDetailPage({
       <SurfaceCard>
         <h2 className="text-2xl">批次动作</h2>
         <p className="text-secondary-foreground/80 mt-4 text-sm leading-7">
-          系统不会自动锁定报名、自动执行匹配或自动公布结果，请按当前状态手动推进。
+          系统会按时间自动开放报名、锁定、执行匹配和公布结果。下列按钮只用于补做已经到时的动作，不能提前抢跑时间线。
         </p>
         <div className="mt-5 flex flex-wrap gap-3">
           {batch.status === "open" ? (
@@ -196,7 +229,7 @@ export default async function AdminBatchDetailPage({
               <Button type="submit">关闭报名并锁定</Button>
             </form>
           ) : null}
-          {(batch.status === "locked" || batch.status === "failed") ? (
+          {batch.status === "locked" || batch.status === "failed" ? (
             <form action={runBatchNowAction}>
               <input type="hidden" name="batchId" value={batch.id} />
               <Button type="submit">
@@ -213,7 +246,9 @@ export default async function AdminBatchDetailPage({
           {batch.status === "processing" && !batch.processedAt ? (
             <form action={resetInterruptedBatchAction}>
               <input type="hidden" name="batchId" value={batch.id} />
-              <Button type="submit" tone="soft">重置为失败后重跑</Button>
+              <Button type="submit" tone="soft">
+                重置为失败后重跑
+              </Button>
             </form>
           ) : null}
         </div>
@@ -224,7 +259,10 @@ export default async function AdminBatchDetailPage({
         <div className="mt-5 grid gap-3">
           {batch.operationLogs.length > 0 ? (
             batch.operationLogs.map((log) => (
-              <div key={log.id} className="border-border rounded-2xl border p-4">
+              <div
+                key={log.id}
+                className="border-border rounded-2xl border p-4"
+              >
                 <p className="text-sm">{log.actionType}</p>
                 <p className="text-secondary-foreground/80 mt-3 text-sm leading-7">
                   {log.actorRole} · {formatDateTime(log.createdAt)}

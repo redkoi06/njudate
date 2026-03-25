@@ -7,44 +7,74 @@ import { z } from "zod";
 import { requireAdminUser } from "@/lib/auth/session";
 import {
   lockBatch,
+  openBatch,
   processBatch,
   publishBatch,
   resetInterruptedBatch,
   rerunFailedBatch,
 } from "@/lib/matching/batch-runner";
+import {
+  fetchBatchLifecycleState,
+  hasReachedBatchTime,
+} from "@/lib/matching/lifecycle-core";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import type { Json } from "@/types/database.generated";
 
 const batchDraftSchema = z
   .object({
     questionnaireVersionId: z.string().uuid("请选择已发布问卷版本"),
+    signupStartAt: z
+      .string()
+      .trim()
+      .refine(
+        (value) => !Number.isNaN(new Date(value).getTime()),
+        "请填写有效的开始报名时间",
+      )
+      .transform((value) => new Date(value).toISOString()),
     signupEndAt: z
       .string()
       .trim()
-      .refine((value) => !Number.isNaN(new Date(value).getTime()), "请填写有效的报名截止时间")
+      .refine(
+        (value) => !Number.isNaN(new Date(value).getTime()),
+        "请填写有效的报名截止时间",
+      )
       .transform((value) => new Date(value).toISOString()),
     matchRunAt: z
       .string()
       .trim()
-      .refine((value) => !Number.isNaN(new Date(value).getTime()), "请填写有效的匹配计算时间")
+      .refine(
+        (value) => !Number.isNaN(new Date(value).getTime()),
+        "请填写有效的匹配计算时间",
+      )
       .transform((value) => new Date(value).toISOString()),
     resultPublishAt: z
       .string()
       .trim()
-      .refine((value) => !Number.isNaN(new Date(value).getTime()), "请填写有效的结果发布时间")
+      .refine(
+        (value) => !Number.isNaN(new Date(value).getTime()),
+        "请填写有效的结果发布时间",
+      )
       .transform((value) => new Date(value).toISOString()),
     notes: z.string().trim().optional(),
   })
   .superRefine((value, ctx) => {
+    const signupStartAt = new Date(value.signupStartAt);
     const signupEndAt = new Date(value.signupEndAt);
     const matchRunAt = new Date(value.matchRunAt);
     const resultPublishAt = new Date(value.resultPublishAt);
 
-    if (!(signupEndAt < matchRunAt && matchRunAt < resultPublishAt)) {
+    if (
+      !(
+        signupStartAt < signupEndAt &&
+        signupEndAt < matchRunAt &&
+        matchRunAt < resultPublishAt
+      )
+    ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "必须满足 signup_end_at < match_run_at < result_publish_at",
-        path: ["signupEndAt"],
+        message:
+          "必须满足 signup_start_at < signup_end_at < match_run_at < result_publish_at",
+        path: ["signupStartAt"],
       });
     }
   });
@@ -108,7 +138,9 @@ async function ensureNoCurrentBatch() {
   }
 }
 
-async function getPublishedQuestionnaireSnapshot(questionnaireVersionId: string) {
+async function getPublishedQuestionnaireSnapshot(
+  questionnaireVersionId: string,
+) {
   const admin = createAdminSupabaseClient();
   const { data, error } = await admin
     .from("questionnaire_versions")
@@ -149,6 +181,7 @@ export async function createBatchAction(formData: FormData) {
     try {
       const parsed = batchDraftSchema.parse({
         questionnaireVersionId: stringField(formData, "questionnaireVersionId"),
+        signupStartAt: stringField(formData, "signupStartAt"),
         signupEndAt: stringField(formData, "signupEndAt"),
         matchRunAt: stringField(formData, "matchRunAt"),
         resultPublishAt: stringField(formData, "resultPublishAt"),
@@ -172,13 +205,6 @@ export async function createBatchAction(formData: FormData) {
   const admin = createAdminSupabaseClient();
   const code = `round-${String(nextRoundNo).padStart(4, "0")}`;
   const label = `第 ${nextRoundNo} 轮`;
-  const signupStartAt = new Date().toISOString();
-
-  if (!(new Date(signupStartAt) < new Date(payload.signupEndAt))) {
-    redirectWithMessage("/admin/batches", {
-      error: "创建时的 signup_start_at 必须早于 signup_end_at。",
-    });
-  }
 
   const { data: createdBatch, error } = await admin
     .from("match_batches")
@@ -186,7 +212,7 @@ export async function createBatchAction(formData: FormData) {
       code,
       label,
       questionnaire_version_id: questionnaireVersion.id,
-      signup_start_at: signupStartAt,
+      signup_start_at: payload.signupStartAt,
       signup_end_at: payload.signupEndAt,
       match_run_at: payload.matchRunAt,
       result_publish_at: payload.resultPublishAt,
@@ -233,6 +259,7 @@ export async function updateBatchAction(formData: FormData) {
     try {
       return batchDraftSchema.parse({
         questionnaireVersionId: stringField(formData, "questionnaireVersionId"),
+        signupStartAt: stringField(formData, "signupStartAt"),
         signupEndAt: stringField(formData, "signupEndAt"),
         matchRunAt: stringField(formData, "matchRunAt"),
         resultPublishAt: stringField(formData, "resultPublishAt"),
@@ -248,7 +275,7 @@ export async function updateBatchAction(formData: FormData) {
   const admin = createAdminSupabaseClient();
   const { data: currentBatch, error: currentBatchError } = await admin
     .from("match_batches")
-    .select("status, signup_start_at")
+    .select("status")
     .eq("id", batchId)
     .maybeSingle();
 
@@ -262,12 +289,6 @@ export async function updateBatchAction(formData: FormData) {
     });
   }
 
-  if (!(new Date(currentBatch.signup_start_at) < new Date(payload.signupEndAt))) {
-    redirectWithMessage(`/admin/batches/${batchId}`, {
-      error: "signup_start_at 必须早于 signup_end_at。",
-    });
-  }
-
   const questionnaireVersion = await getPublishedQuestionnaireSnapshot(
     payload.questionnaireVersionId,
   );
@@ -276,6 +297,7 @@ export async function updateBatchAction(formData: FormData) {
     .from("match_batches")
     .update({
       questionnaire_version_id: questionnaireVersion.id,
+      signup_start_at: payload.signupStartAt,
       signup_end_at: payload.signupEndAt,
       match_run_at: payload.matchRunAt,
       result_publish_at: payload.resultPublishAt,
@@ -302,7 +324,7 @@ export async function updateBatchAction(formData: FormData) {
 }
 
 export async function openBatchSignupAction(formData: FormData) {
-  const actor = await requireAdminUser();
+  await requireAdminUser();
   const batchId = stringField(formData, "batchId");
   const admin = createAdminSupabaseClient();
 
@@ -314,7 +336,7 @@ export async function openBatchSignupAction(formData: FormData) {
 
   const { data: batch, error: batchError } = await admin
     .from("match_batches")
-    .select("signup_end_at, status")
+    .select("signup_start_at, status")
     .eq("id", batchId)
     .maybeSingle();
 
@@ -330,31 +352,19 @@ export async function openBatchSignupAction(formData: FormData) {
 
   const nowIso = new Date().toISOString();
 
-  if (!(new Date(nowIso) < new Date(batch.signup_end_at))) {
+  if (!hasReachedBatchTime(batch.signup_start_at, nowIso)) {
     redirectWithMessage(`/admin/batches/${batchId}`, {
-      error: "当前时间已经晚于报名截止时间，不能再开放报名。",
+      error: "开始报名时间未到，暂时不能打开报名。",
     });
   }
 
-  const { error } = await admin
-    .from("match_batches")
-    .update({
-      status: "open",
-      signup_start_at: nowIso,
-      last_error_message: null,
-    })
-    .eq("id", batchId)
-    .eq("status", "draft");
+  const didOpen = await openBatch(batchId, "admin");
 
-  if (error) {
-    throw error;
+  if (!didOpen) {
+    redirectWithMessage(`/admin/batches/${batchId}`, {
+      error: "该批次状态已变化，请刷新后重试。",
+    });
   }
-
-  await logBatchOperation({
-    actionType: "batch_opened",
-    actorUserId: actor.id,
-    batchId,
-  });
 
   revalidatePath("/admin");
   revalidatePath("/admin/batches");
@@ -372,7 +382,30 @@ export async function lockBatchAction(formData: FormData) {
   }
 
   await requireAdminUser();
-  await lockBatch(batchId);
+  const admin = createAdminSupabaseClient();
+  const nowIso = new Date().toISOString();
+  const batch = await fetchBatchLifecycleState(admin, batchId);
+
+  if (!batch || batch.status !== "open") {
+    redirectWithMessage(`/admin/batches/${batchId}`, {
+      error: "只有 open 批次可以锁定。",
+    });
+  }
+
+  if (!hasReachedBatchTime(batch.signup_end_at, nowIso)) {
+    redirectWithMessage(`/admin/batches/${batchId}`, {
+      error: "报名截止时间未到，暂时不能锁定报名。",
+    });
+  }
+
+  const didLock = await lockBatch(batchId, "admin");
+
+  if (!didLock) {
+    redirectWithMessage(`/admin/batches/${batchId}`, {
+      error: "该批次状态已变化，请刷新后重试。",
+    });
+  }
+
   revalidatePath("/admin");
   revalidatePath("/admin/batches");
   revalidatePath(`/admin/batches/${batchId}`);
@@ -407,15 +440,43 @@ export async function runBatchNowAction(formData: FormData) {
     });
   }
 
+  const scheduleBatch = await fetchBatchLifecycleState(admin, batchId);
+
+  if (!scheduleBatch) {
+    redirectWithMessage(`/admin/batches/${batchId}`, {
+      error: "批次不存在。",
+    });
+  }
+
+  if (
+    !hasReachedBatchTime(scheduleBatch.match_run_at, new Date().toISOString())
+  ) {
+    redirectWithMessage(`/admin/batches/${batchId}`, {
+      error: "匹配计算时间未到，暂时不能执行匹配。",
+    });
+  }
+
   const didProcess =
     batch.status === "failed"
-      ? await rerunFailedBatch(batchId)
-      : await processBatch(batchId);
+      ? await rerunFailedBatch(batchId, "admin")
+      : await processBatch(batchId, "admin");
 
   if (!didProcess) {
     redirectWithMessage(`/admin/batches/${batchId}`, {
       error: "该批次已在处理或状态已变化，请刷新后重试。",
     });
+  }
+
+  const nowIso = new Date().toISOString();
+  const processedBatch = await fetchBatchLifecycleState(admin, batchId);
+
+  if (
+    processedBatch &&
+    processedBatch.status === "processing" &&
+    processedBatch.processed_at &&
+    hasReachedBatchTime(processedBatch.result_publish_at, nowIso)
+  ) {
+    await publishBatch(batchId, "admin");
   }
 
   revalidatePath("/admin");
@@ -452,7 +513,26 @@ export async function publishBatchNowAction(formData: FormData) {
     });
   }
 
-  await publishBatch(batchId);
+  const scheduleBatch = await fetchBatchLifecycleState(admin, batchId);
+
+  if (!scheduleBatch) {
+    redirectWithMessage(`/admin/batches/${batchId}`, {
+      error: "批次不存在。",
+    });
+  }
+
+  if (
+    !hasReachedBatchTime(
+      scheduleBatch.result_publish_at,
+      new Date().toISOString(),
+    )
+  ) {
+    redirectWithMessage(`/admin/batches/${batchId}`, {
+      error: "结果发布时间未到，暂时不能公布结果。",
+    });
+  }
+
+  await publishBatch(batchId, "admin");
   revalidatePath("/admin");
   revalidatePath("/admin/batches");
   revalidatePath(`/admin/batches/${batchId}`);

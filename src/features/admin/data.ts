@@ -11,6 +11,7 @@ export type AdminDashboardData = {
     matchRunAt: string | null;
     resultPublishAt: string | null;
     signupEndAt: string | null;
+    signupStartAt: string | null;
     status: string | null;
   };
   currentQuestionnaire: {
@@ -39,9 +40,12 @@ export type AdminDashboardData = {
     id: string;
   }>;
   runStatus: {
+    actionType: string | null;
+    actedAt: string | null;
     batchId: string | null;
     label: string | null;
     lastErrorMessage: string | null;
+    source: string | null;
     status: string | null;
   };
   users: {
@@ -90,43 +94,61 @@ async function countActiveUsers() {
 
 export async function getAdminDashboardData() {
   const admin = createAdminSupabaseClient();
-  const [users, questionnaireContext, currentBatchResult, latestPublishedBatchResult, latestAnnouncementResult, recentOperationLogsResult, runStatusResult] =
-    await Promise.all([
-      countActiveUsers(),
-      getEffectiveQuestionnaireContext(admin),
-      admin
-        .from("match_batches")
-        .select("id, label, signup_end_at, match_run_at, result_publish_at, status")
-        .in("status", ["open", "locked", "processing", "failed"])
-        .order("signup_end_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-      admin
-        .from("match_batches")
-        .select("id, label")
-        .eq("status", "published")
-        .order("published_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-      admin
-        .from("announcements")
-        .select("id, title, status")
-        .order("updated_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-      admin
-        .from("operation_logs")
-        .select("id, actor_role, action_type, entity_type, entity_id, created_at")
-        .order("created_at", { ascending: false })
-        .limit(6),
-      admin
-        .from("match_batches")
-        .select("id, label, status, last_error_message")
-        .in("status", ["failed", "processing", "published"])
-        .order("updated_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-    ]);
+  const [
+    users,
+    questionnaireContext,
+    currentBatchResult,
+    latestPublishedBatchResult,
+    latestAnnouncementResult,
+    recentOperationLogsResult,
+    latestRunLogResult,
+    runStatusBatchResult,
+  ] = await Promise.all([
+    countActiveUsers(),
+    getEffectiveQuestionnaireContext(admin),
+    admin
+      .from("match_batches")
+      .select(
+        "id, label, signup_start_at, signup_end_at, match_run_at, result_publish_at, status",
+      )
+      .in("status", ["draft", "open", "locked", "processing", "failed"])
+      .order("signup_end_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    admin
+      .from("match_batches")
+      .select("id, label")
+      .eq("status", "published")
+      .order("published_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    admin
+      .from("announcements")
+      .select("id, title, status")
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    admin
+      .from("operation_logs")
+      .select("id, actor_role, action_type, entity_type, entity_id, created_at")
+      .order("created_at", { ascending: false })
+      .limit(6),
+    admin
+      .from("operation_logs")
+      .select("action_type, actor_role, created_at, entity_id")
+      .eq("entity_type", "match_batch")
+      .in("action_type", ["batch_processed", "batch_process_failed"])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    admin
+      .from("match_batches")
+      .select("id, label, status, last_error_message")
+      .in("status", ["failed", "processing", "published"])
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
 
   if (currentBatchResult.error) {
     throw currentBatchResult.error;
@@ -144,30 +166,52 @@ export async function getAdminDashboardData() {
     throw recentOperationLogsResult.error;
   }
 
-  if (runStatusResult.error) {
-    throw runStatusResult.error;
+  if (latestRunLogResult.error) {
+    throw latestRunLogResult.error;
   }
 
-  const [questionnaireCompletionCount, publishedBatchResultsResult] = await Promise.all([
-    countActiveSubmittedQuestionnaireUsers(
-      admin,
-      questionnaireContext?.versionId ?? null,
-    ),
-    latestPublishedBatchResult.data
-      ? admin
-          .from("match_results")
-          .select("status")
-          .eq("batch_id", latestPublishedBatchResult.data.id)
-      : Promise.resolve({ data: [], error: null }),
-  ]);
+  if (runStatusBatchResult.error) {
+    throw runStatusBatchResult.error;
+  }
+
+  const runStatusBatch =
+    typeof latestRunLogResult.data?.entity_id === "string"
+      ? await admin
+          .from("match_batches")
+          .select("id, label, status, last_error_message")
+          .eq("id", latestRunLogResult.data.entity_id)
+          .maybeSingle()
+      : runStatusBatchResult;
+
+  if (runStatusBatch.error) {
+    throw runStatusBatch.error;
+  }
+
+  const [questionnaireCompletionCount, publishedBatchResultsResult] =
+    await Promise.all([
+      countActiveSubmittedQuestionnaireUsers(
+        admin,
+        questionnaireContext?.versionId ?? null,
+      ),
+      latestPublishedBatchResult.data
+        ? admin
+            .from("match_results")
+            .select("status")
+            .eq("batch_id", latestPublishedBatchResult.data.id)
+        : Promise.resolve({ data: [], error: null }),
+    ]);
 
   if (publishedBatchResultsResult.error) {
     throw publishedBatchResultsResult.error;
   }
 
   const publishedBatchResults = publishedBatchResultsResult.data ?? [];
-  const matchedCount = publishedBatchResults.filter((item) => item.status === "matched").length;
-  const unmatchedCount = publishedBatchResults.filter((item) => item.status === "unmatched").length;
+  const matchedCount = publishedBatchResults.filter(
+    (item) => item.status === "matched",
+  ).length;
+  const unmatchedCount = publishedBatchResults.filter(
+    (item) => item.status === "unmatched",
+  ).length;
   const completionCount = questionnaireCompletionCount;
 
   return {
@@ -177,6 +221,7 @@ export async function getAdminDashboardData() {
       matchRunAt: currentBatchResult.data?.match_run_at ?? null,
       resultPublishAt: currentBatchResult.data?.result_publish_at ?? null,
       signupEndAt: currentBatchResult.data?.signup_end_at ?? null,
+      signupStartAt: currentBatchResult.data?.signup_start_at ?? null,
       status: currentBatchResult.data?.status ?? null,
     },
     currentQuestionnaire: {
@@ -208,10 +253,18 @@ export async function getAdminDashboardData() {
       id: item.id,
     })),
     runStatus: {
-      batchId: runStatusResult.data?.id ?? null,
-      label: runStatusResult.data?.label ?? null,
-      lastErrorMessage: runStatusResult.data?.last_error_message ?? null,
-      status: runStatusResult.data?.status ?? null,
+      actionType: latestRunLogResult.data?.action_type ?? null,
+      actedAt: latestRunLogResult.data?.created_at ?? null,
+      batchId:
+        (typeof latestRunLogResult.data?.entity_id === "string"
+          ? latestRunLogResult.data.entity_id
+          : null) ??
+        runStatusBatch.data?.id ??
+        null,
+      label: runStatusBatch.data?.label ?? null,
+      lastErrorMessage: runStatusBatch.data?.last_error_message ?? null,
+      source: latestRunLogResult.data?.actor_role ?? null,
+      status: runStatusBatch.data?.status ?? null,
     },
     users,
   } satisfies AdminDashboardData;

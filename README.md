@@ -42,9 +42,12 @@ npm run dev
 
 ## 环境变量
 
+- `NEXT_PUBLIC_SITE_URL`: 站点正式访问地址
 - `NEXT_PUBLIC_SUPABASE_URL`: Supabase 项目 URL
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`: Supabase 前端公钥
 - `SUPABASE_SERVICE_ROLE_KEY`: Supabase service role key
+- `INTERNAL_AUTOMATION_SECRET`: Supabase Edge Function 调用站内内部接口时使用的共享密钥
+- `CRON_SECRET`: Supabase 定时任务调用 `auto-batch-lifecycle` Edge Function 时使用的共享密钥
 - `SMTP_HOST`: 业务邮件 SMTP 主机
 - `SMTP_PORT`: 业务邮件 SMTP 端口
 - `SMTP_SECURE`: 业务邮件是否使用 SMTPS，`true` 或 `false`
@@ -71,10 +74,12 @@ npm run supabase:types
 
 ## 运营运行方式
 
-- 批次生命周期完全由管理员手动推进，不存在 Cron，也不存在内部自动跑批入口。
-- 标准运行链路为：管理员手动锁定报名 -> 手动执行匹配 -> 手动发布结果。
-- 若批次执行失败，只能由管理员手动重跑。
+- 批次生命周期按 `开始报名 -> 报名截止 -> 结果计算 -> 结果公布` 四个时间点自动推进。
+- 管理员仍可在后台补做已到时的动作，但不能早于计划时间抢跑。
+- 若批次执行失败，只能由管理员手动重跑；若已经晚于结果公布时间，重跑成功后会立即补发布。
 - 若批次卡在 `processing + processed_at = null`，必须先在后台手动重置为 `failed`，再重新执行匹配。
+- `auto-batch-lifecycle` Edge Function 使用 `CRON_SECRET` 请求头鉴权，并在 `supabase/config.toml` 中关闭 JWT 校验。
+- Supabase 定时调度创建或更新后，需要执行 `select public.upsert_auto_batch_lifecycle_schedule('<SUPABASE_PROJECT_URL>', '<CRON_SECRET>');` 重建任务。
 
 ## 部署检查
 

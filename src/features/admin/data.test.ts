@@ -38,11 +38,19 @@ function createHeadCountQuery(count: number) {
     ),
     then<TResult1, TResult2 = never>(
       onfulfilled?:
-        | ((value: { count: number; error: null }) => TResult1 | PromiseLike<TResult1>)
+        | ((value: {
+            count: number;
+            error: null;
+          }) => TResult1 | PromiseLike<TResult1>)
         | null,
-      onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
+      onrejected?:
+        | ((reason: unknown) => TResult2 | PromiseLike<TResult2>)
+        | null,
     ) {
-      return Promise.resolve({ count, error: null }).then(onfulfilled, onrejected);
+      return Promise.resolve({ count, error: null }).then(
+        onfulfilled,
+        onrejected,
+      );
     },
   };
 
@@ -135,6 +143,18 @@ describe("getAdminDashboardData", () => {
         if (table === "operation_logs") {
           return {
             select: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                in: vi.fn(() => ({
+                  order: vi.fn(() => ({
+                    limit: vi.fn(() => ({
+                      maybeSingle: vi.fn(async () => ({
+                        data: null,
+                        error: null,
+                      })),
+                    })),
+                  })),
+                })),
+              })),
               order: vi.fn(() => ({
                 limit: vi.fn(async () => ({
                   data: [],

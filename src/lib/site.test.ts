@@ -19,25 +19,25 @@ describe("questionnaire status copy", () => {
         ...openInput,
         status: "not_started",
       }),
-    ).toBe("当前版本未开始");
+    ).toBe("待填写");
     expect(
       getQuestionnaireStatusLabel({
         ...openInput,
         status: "draft",
       }),
-    ).toBe("当前版本草稿未提交");
+    ).toBe("草稿待提交");
     expect(
       getQuestionnaireStatusLabel({
         ...openInput,
         status: "submitted",
       }),
-    ).toBe("当前版本已提交");
+    ).toBe("已提交");
     expect(
       getQuestionnaireStatusLabel({
         ...openInput,
         status: "updated",
       }),
-    ).toBe("当前版本已提交，另有未提交草稿");
+    ).toBe("已提交，另有未提交草稿");
   });
 
   it("returns the closed-window wording when the questionnaire channel is closed", () => {
@@ -54,7 +54,7 @@ describe("questionnaire status copy", () => {
         status: "draft",
         windowStatus: "closed",
       }),
-    ).toContain("结果公布前仅支持查看，不允许保存或提交");
+    ).toContain("问卷当前仅支持查看");
   });
 
   it("uses precise participation requirements for unfinished questionnaire states", () => {
@@ -63,13 +63,13 @@ describe("questionnaire status copy", () => {
         status: "not_started",
         windowStatus: "open",
       }),
-    ).toBe("当前版本未开始，请先正式提交当前问卷。");
+    ).toBe("问卷未填写，请先正式提交问卷。");
     expect(
       getQuestionnaireParticipationRequirement({
         status: "draft",
         windowStatus: "open",
       }),
-    ).toBe("当前版本草稿未提交，请先正式提交当前问卷。");
+    ).toBe("问卷草稿未提交，请先正式提交问卷。");
     expect(
       getQuestionnaireParticipationRequirement({
         status: "draft",

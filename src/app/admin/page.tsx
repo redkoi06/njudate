@@ -16,7 +16,9 @@ function MetricCard({
       <p className="text-muted-foreground text-xs tracking-[0.2em]">{label}</p>
       <p className="mt-3 text-2xl">{value}</p>
       {hint ? (
-        <p className="text-secondary-foreground/80 mt-3 text-sm leading-7">{hint}</p>
+        <p className="text-secondary-foreground/80 mt-3 text-sm leading-7">
+          {hint}
+        </p>
       ) : null}
     </div>
   );
@@ -68,7 +70,11 @@ export default async function AdminPage() {
               dashboard.runStatus.lastErrorMessage
                 ? dashboard.runStatus.lastErrorMessage
                 : dashboard.runStatus.label
-                  ? `最近运行批次：${dashboard.runStatus.label}`
+                  ? `最近${dashboard.runStatus.source === "admin" ? "手动" : dashboard.runStatus.source === "system" ? "自动" : ""}运行：${dashboard.runStatus.label}${
+                      dashboard.runStatus.actedAt
+                        ? ` · ${formatDateTime(dashboard.runStatus.actedAt)}`
+                        : ""
+                    }`
                   : "还没有可展示的运行记录。"
             }
           />
@@ -78,7 +84,11 @@ export default async function AdminPage() {
       <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
         <SurfaceCard>
           <h2 className="text-2xl">当前批次时间点</h2>
-          <div className="mt-5 grid gap-4 md:grid-cols-3">
+          <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <MetricCard
+              label="开始报名"
+              value={formatDateTime(dashboard.currentBatch.signupStartAt)}
+            />
             <MetricCard
               label="报名截止"
               value={formatDateTime(dashboard.currentBatch.signupEndAt)}
@@ -118,7 +128,13 @@ export default async function AdminPage() {
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-2xl">最近公告</h2>
             {dashboard.latestAnnouncement ? (
-              <Badge tone={dashboard.latestAnnouncement.status === "published" ? "success" : "soft"}>
+              <Badge
+                tone={
+                  dashboard.latestAnnouncement.status === "published"
+                    ? "success"
+                    : "soft"
+                }
+              >
                 {dashboard.latestAnnouncement.status}
               </Badge>
             ) : null}
@@ -133,7 +149,10 @@ export default async function AdminPage() {
           <div className="mt-5 grid gap-3">
             {dashboard.recentOperationLogs.length > 0 ? (
               dashboard.recentOperationLogs.map((log) => (
-                <div key={log.id} className="border-border rounded-2xl border p-4">
+                <div
+                  key={log.id}
+                  className="border-border rounded-2xl border p-4"
+                >
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <p className="text-sm">{log.actionType}</p>
                     <Badge>{log.actorRole}</Badge>

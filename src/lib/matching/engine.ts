@@ -1,4 +1,4 @@
-import type { MatchingPolicy } from "@/lib/matching/policy";
+import type { MatchingPolicy } from "./policy.ts";
 
 export type MatchingQuestion = {
   kind: "single" | "multiple" | "scale";
