@@ -14,8 +14,8 @@ export default async function ParticipationPage() {
   return (
     <SurfaceCard>
       <SectionHeader
-        eyebrow="本周参与"
-        title={participation.label?.replace("匹配批次", "匹配轮次") ?? "当前没有开放批次"}
+        eyebrow="本轮参与"
+        title={participation.label?.replace("匹配轮次", "匹配轮次") ?? "当前没有开放轮次"}
         description={
           participation.label
             ? `报名截止：${formatDateTime(participation.signupEndAt)}，结果公布：${formatDateTime(participation.resultPublishAt)}。`

@@ -456,7 +456,7 @@ export async function getParticipationState(userId: string) {
       signupEndAt: null,
       matchRunAt: null,
       status: "unavailable",
-      reason: "当前没有开放中的匹配批次。",
+      reason: "当前没有开放中的匹配轮次。",
     } satisfies ParticipationState;
   }
 
@@ -668,7 +668,7 @@ export async function getMatchRecords(userId: string) {
 
   return visibleResults.map((item) => ({
     id: item.id,
-    batchLabel: labelMap.get(item.batch_id) ?? "未命名批次",
+    batchLabel: labelMap.get(item.batch_id) ?? "未命名轮次",
     status: item.status,
     previewText: item.preview_text,
     score: item.score,

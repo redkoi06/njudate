@@ -56,7 +56,7 @@ export default async function MatchesPage() {
       ) : (
         <EmptyState
           title="还没有匹配记录"
-          description="当本周结果公布后，你可以在这里查看历次批次的结果。"
+          description="当本周结果公布后，你可以在这里查看历次轮次的结果。"
         />
       )}
     </div>
