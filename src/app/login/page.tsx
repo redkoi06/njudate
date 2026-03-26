@@ -51,7 +51,7 @@ export default async function LoginPage({
         <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(36,23,24,0.18),rgba(51,31,34,0.68)_60%,rgba(29,19,20,0.84))]" />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(250,203,173,0.32),transparent_26%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.15),transparent_22%)]" />
 
-        <div className="relative z-10 flex h-full flex-col justify-between px-6 py-6 text-white sm:justify-start sm:gap-10 sm:px-8 sm:py-8 lg:justify-between lg:gap-0 lg:px-10 lg:py-10">
+        <div className="relative z-10 flex h-full flex-col justify-start gap-8 px-6 py-6 text-white sm:gap-10 sm:px-8 sm:py-8 lg:justify-between lg:gap-0 lg:px-10 lg:py-10">
           <div>
             <Link
               href="/"
