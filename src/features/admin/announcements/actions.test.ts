@@ -193,6 +193,10 @@ describe("announcement actions", () => {
     expect(redirectUrl).toBe("/admin/announcements");
     expect(harness.state.announcements).toHaveLength(1);
     expect(harness.state.announcements[0]?.status).toBe("draft");
+    expect(harness.state.announcements[0]).toMatchObject({
+      starts_at: "2026-03-25T04:00:00.000Z",
+      ends_at: "2026-03-26T04:00:00.000Z",
+    });
     expect(harness.state.logs).toContainEqual(
       expect.objectContaining({
         action_type: "announcement_created",

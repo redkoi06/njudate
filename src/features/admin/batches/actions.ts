@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { requireAdminUser } from "@/lib/auth/session";
+import { shanghaiDateTimeInputToIso } from "@/lib/date-time";
 import {
   lockBatch,
   openBatch,
@@ -20,41 +21,21 @@ import {
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import type { Json } from "@/types/database.generated";
 
+function shanghaiDateTimeField(message: string) {
+  return z
+    .string()
+    .trim()
+    .refine((value) => shanghaiDateTimeInputToIso(value) !== null, message)
+    .transform((value) => shanghaiDateTimeInputToIso(value)!);
+}
+
 const batchDraftSchema = z
   .object({
     questionnaireVersionId: z.string().uuid("请选择已发布问卷版本"),
-    signupStartAt: z
-      .string()
-      .trim()
-      .refine(
-        (value) => !Number.isNaN(new Date(value).getTime()),
-        "请填写有效的开始报名时间",
-      )
-      .transform((value) => new Date(value).toISOString()),
-    signupEndAt: z
-      .string()
-      .trim()
-      .refine(
-        (value) => !Number.isNaN(new Date(value).getTime()),
-        "请填写有效的报名截止时间",
-      )
-      .transform((value) => new Date(value).toISOString()),
-    matchRunAt: z
-      .string()
-      .trim()
-      .refine(
-        (value) => !Number.isNaN(new Date(value).getTime()),
-        "请填写有效的匹配计算时间",
-      )
-      .transform((value) => new Date(value).toISOString()),
-    resultPublishAt: z
-      .string()
-      .trim()
-      .refine(
-        (value) => !Number.isNaN(new Date(value).getTime()),
-        "请填写有效的结果发布时间",
-      )
-      .transform((value) => new Date(value).toISOString()),
+    signupStartAt: shanghaiDateTimeField("请填写有效的开始报名时间"),
+    signupEndAt: shanghaiDateTimeField("请填写有效的报名截止时间"),
+    matchRunAt: shanghaiDateTimeField("请填写有效的匹配计算时间"),
+    resultPublishAt: shanghaiDateTimeField("请填写有效的结果发布时间"),
     notes: z.string().trim().optional(),
   })
   .superRefine((value, ctx) => {

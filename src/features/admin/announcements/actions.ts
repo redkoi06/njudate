@@ -5,8 +5,17 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { requireAdminUser } from "@/lib/auth/session";
+import { shanghaiDateTimeInputToIso } from "@/lib/date-time";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import type { Json } from "@/types/database.generated";
+
+function shanghaiDateTimeField(message: string) {
+  return z
+    .string()
+    .trim()
+    .refine((value) => shanghaiDateTimeInputToIso(value) !== null, message)
+    .transform((value) => shanghaiDateTimeInputToIso(value)!);
+}
 
 const announcementSchema = z
   .object({
@@ -16,16 +25,8 @@ const announcementSchema = z
     }),
     body: z.string().trim().min(1, "请填写公告正文"),
     eyebrow: z.string().trim().min(1, "请填写公告眉题"),
-    endsAt: z
-      .string()
-      .trim()
-      .refine((value) => !Number.isNaN(new Date(value).getTime()), "请填写有效的结束时间")
-      .transform((value) => new Date(value).toISOString()),
-    startsAt: z
-      .string()
-      .trim()
-      .refine((value) => !Number.isNaN(new Date(value).getTime()), "请填写有效的开始时间")
-      .transform((value) => new Date(value).toISOString()),
+    endsAt: shanghaiDateTimeField("请填写有效的结束时间"),
+    startsAt: shanghaiDateTimeField("请填写有效的开始时间"),
     title: z.string().trim().min(1, "请填写公告标题"),
   })
   .superRefine((value, ctx) => {
