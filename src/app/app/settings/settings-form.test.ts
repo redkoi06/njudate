@@ -14,25 +14,23 @@ describe("SettingsForm", () => {
         action: vi.fn(),
         defaultValues: {
           notifyMatchResult: true,
-          notifyWeeklyReminder: false,
-          notifyPlatformDigest: true,
         },
       }),
     );
 
     const saveButton = screen.getByRole("button", { name: "保存设置" });
-    const weeklyReminder = screen.getByRole("checkbox", {
-      name: "每周参与提醒",
+    const matchResult = screen.getByRole("checkbox", {
+      name: "匹配结果提醒",
     });
 
     expect(saveButton).toBeDisabled();
     expect(saveButton).toHaveClass("disabled:cursor-default");
 
-    await user.click(weeklyReminder);
+    await user.click(matchResult);
 
     expect(saveButton).toBeEnabled();
 
-    await user.click(weeklyReminder);
+    await user.click(matchResult);
 
     expect(saveButton).toBeDisabled();
   });

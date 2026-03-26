@@ -57,8 +57,6 @@ function buildProfileSchema() {
 
 const settingsSchema = z.object({
   notifyMatchResult: z.boolean(),
-  notifyWeeklyReminder: z.boolean(),
-  notifyPlatformDigest: z.boolean(),
 });
 
 const deleteAccountResultSchema = z.object({
@@ -691,16 +689,12 @@ export async function saveSettingsAction(formData: FormData) {
   const { supabase, user } = await requireAuthenticatedClient();
   const payload = settingsSchema.parse({
     notifyMatchResult: boolField(formData, "notifyMatchResult"),
-    notifyWeeklyReminder: boolField(formData, "notifyWeeklyReminder"),
-    notifyPlatformDigest: boolField(formData, "notifyPlatformDigest"),
   });
 
   const { error } = await supabase
     .from("app_users")
     .update({
       notify_match_result: payload.notifyMatchResult,
-      notify_weekly_reminder: payload.notifyWeeklyReminder,
-      notify_platform_digest: payload.notifyPlatformDigest,
     })
     .eq("id", user.id);
 

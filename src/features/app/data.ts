@@ -141,8 +141,6 @@ export type ProfileData = {
 
 export type SettingsData = {
   notifyMatchResult: boolean;
-  notifyWeeklyReminder: boolean;
-  notifyPlatformDigest: boolean;
 };
 
 function mapQuestionOptionList(raw: unknown): QuestionOption[] {
@@ -281,9 +279,7 @@ export async function getSettings(userId: string) {
   const supabase = await createServerSupabaseClient();
   const { data, error } = await supabase
     .from("app_users")
-    .select(
-      "notify_match_result, notify_weekly_reminder, notify_platform_digest",
-    )
+    .select("notify_match_result")
     .eq("id", userId)
     .single();
 
@@ -293,8 +289,6 @@ export async function getSettings(userId: string) {
 
   return {
     notifyMatchResult: data.notify_match_result,
-    notifyWeeklyReminder: data.notify_weekly_reminder,
-    notifyPlatformDigest: data.notify_platform_digest,
   } satisfies SettingsData;
 }
 

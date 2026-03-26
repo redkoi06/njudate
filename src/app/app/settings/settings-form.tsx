@@ -26,23 +26,12 @@ export function SettingsForm({
   action: (formData: FormData) => void | Promise<void>;
   defaultValues: {
     notifyMatchResult: boolean;
-    notifyWeeklyReminder: boolean;
-    notifyPlatformDigest: boolean;
   };
 }) {
   const [notifyMatchResult, setNotifyMatchResult] = useState(
     defaultValues.notifyMatchResult,
   );
-  const [notifyWeeklyReminder, setNotifyWeeklyReminder] = useState(
-    defaultValues.notifyWeeklyReminder,
-  );
-  const [notifyPlatformDigest, setNotifyPlatformDigest] = useState(
-    defaultValues.notifyPlatformDigest,
-  );
-  const hasChanges =
-    notifyMatchResult !== defaultValues.notifyMatchResult ||
-    notifyWeeklyReminder !== defaultValues.notifyWeeklyReminder ||
-    notifyPlatformDigest !== defaultValues.notifyPlatformDigest;
+  const hasChanges = notifyMatchResult !== defaultValues.notifyMatchResult;
 
   return (
     <form action={action} className="mt-8 grid gap-4">
@@ -53,24 +42,6 @@ export function SettingsForm({
           name="notifyMatchResult"
           checked={notifyMatchResult}
           onChange={(event) => setNotifyMatchResult(event.target.checked)}
-        />
-      </label>
-      <label className="border-border flex items-center justify-between rounded-2xl border px-4 py-4 text-sm">
-        每周参与提醒
-        <input
-          type="checkbox"
-          name="notifyWeeklyReminder"
-          checked={notifyWeeklyReminder}
-          onChange={(event) => setNotifyWeeklyReminder(event.target.checked)}
-        />
-      </label>
-      <label className="border-border flex items-center justify-between rounded-2xl border px-4 py-4 text-sm">
-        平台摘要提醒
-        <input
-          type="checkbox"
-          name="notifyPlatformDigest"
-          checked={notifyPlatformDigest}
-          onChange={(event) => setNotifyPlatformDigest(event.target.checked)}
         />
       </label>
       <div className="flex justify-end">
