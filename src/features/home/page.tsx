@@ -126,8 +126,7 @@ function HomeShell({
           <div className="max-w-sm">
             <HomeBrandLogo subtitle="共赴一场独一无二的金陵绮梦" />
             <p className="text-secondary-foreground/80 mt-4 text-sm leading-7">
-              {BRAND_NAME}
-              ：Not just dating tools, but connect the dots.
+              NJU Date：Not just dating tools, but connect the dots.
             </p>
           </div>
 
@@ -353,8 +352,7 @@ export default async function HomePage() {
                         我们的愿景：
                       </p>
                       <p className="text-secondary-foreground/85 mt-4 text-sm leading-8">
-                        {BRAND_NAME}
-                        只做好一件事：让两个有趣的灵魂相遇。我们衷心希望：帮助你认真理解自己、将参与的选择权交给你、在固定时间统一揭晓、只在彻底确认后开放有限联系。产品的价值不在于“更快”，而在于“更自然、更自主、更值得信任”。
+                        NJU Date只做好一件事：让两个有趣的灵魂相遇。我们衷心希望：帮助你认真理解自己、将参与的选择权交给你、在固定时间统一揭晓、只在彻底确认后开放有限联系。产品的价值不在于“更快”，而在于“更自然、更自主、更值得信任”。
                       </p>
                     </div>
 

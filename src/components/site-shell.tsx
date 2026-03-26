@@ -11,7 +11,7 @@ import { isAuthenticatedNavItemActive } from "@/lib/navigation";
 import { ADMIN_NAV_ITEMS, BRAND_NAME, USER_NAV_ITEMS } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
-import { Badge, BrandMark, Button } from "./site-ui";
+import { BrandMark, Button } from "./site-ui";
 
 const PUBLIC_INFO_NAV_ITEMS = [
   { href: "/about", label: "关于平台" },
@@ -35,37 +35,67 @@ function AuthenticatedShellBase({
   return (
     <div className="min-h-screen">
       <header className="border-border/80 sticky top-0 z-30 border-b bg-[rgba(250,247,244,0.9)] backdrop-blur">
-        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-5 py-4 md:px-8 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-center gap-4">
-            <Link href={homeHref}>
-              <BrandMark />
-            </Link>
-            <Badge>{email}</Badge>
-          </div>
-          <nav className="flex flex-wrap items-center gap-2 rounded-[999px] border border-border/70 bg-card/80 p-1.5 shadow-[0_16px_34px_rgba(31,24,24,0.06)] backdrop-blur">
-            {navItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                aria-current={
-                  isAuthenticatedNavItemActive(pathname, item.href) ? "page" : undefined
-                }
-                className={cn(
-                  "inline-flex items-center justify-center rounded-full px-4 py-2 text-sm transition",
-                  isAuthenticatedNavItemActive(pathname, item.href)
-                    ? "bg-primary text-primary-foreground shadow-[0_12px_24px_rgba(139,74,82,0.18)]"
-                    : "text-secondary-foreground hover:bg-secondary/80 hover:text-foreground",
-                )}
-              >
-                {item.label}
+        <div className="mx-auto max-w-7xl px-5 py-3 md:px-8 md:py-4">
+          <div className="grid gap-3 lg:flex lg:items-center lg:justify-between lg:gap-4">
+            <div className="flex items-center justify-between gap-3 lg:min-w-0 lg:flex-1 lg:justify-start lg:gap-4">
+              <Link href={homeHref}>
+                <BrandMark />
               </Link>
-            ))}
-          </nav>
-          <form action={signOutAction}>
-            <Button tone="ghost" size="sm" type="submit">
-              退出登录
-            </Button>
-          </form>
+              <form action={signOutAction} className="lg:hidden">
+                <Button
+                  tone="ghost"
+                  size="sm"
+                  type="submit"
+                  className="px-3 py-2 text-sm hover:bg-secondary/80"
+                >
+                  退出登录
+                </Button>
+              </form>
+              <div
+                className="border-border/60 bg-card/72 text-muted-foreground hidden max-w-full rounded-full border px-3 py-2 text-xs shadow-[0_10px_24px_rgba(31,24,24,0.04)] lg:block lg:max-w-[18rem] lg:text-sm"
+                title={email}
+              >
+                <span className="block truncate">{email}</span>
+              </div>
+            </div>
+            <div
+              className="border-border/60 bg-card/72 text-muted-foreground max-w-full rounded-full border px-3 py-2 text-center text-xs shadow-[0_10px_24px_rgba(31,24,24,0.04)] lg:hidden"
+              title={email}
+            >
+              <span className="block truncate">{email}</span>
+            </div>
+            <nav className="border-border/70 bg-card/80 grid grid-cols-3 gap-1.5 rounded-[24px] border p-1.5 shadow-[0_16px_34px_rgba(31,24,24,0.06)] backdrop-blur lg:flex lg:flex-wrap lg:items-center lg:justify-end lg:gap-2 lg:rounded-[999px] lg:p-1.5">
+              {navItems.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  aria-current={
+                    isAuthenticatedNavItemActive(pathname, item.href)
+                      ? "page"
+                      : undefined
+                  }
+                  className={cn(
+                    "inline-flex min-h-10 w-full items-center justify-center rounded-full px-2 py-2 text-[0.95rem] transition lg:min-h-0 lg:w-auto lg:px-4 lg:py-2 lg:text-sm",
+                    isAuthenticatedNavItemActive(pathname, item.href)
+                      ? "bg-primary text-primary-foreground shadow-[0_12px_24px_rgba(139,74,82,0.18)]"
+                      : "text-secondary-foreground hover:bg-secondary/80 hover:text-foreground",
+                  )}
+                >
+                  {item.label}
+                </Link>
+              ))}
+              <form action={signOutAction} className="hidden lg:block">
+                <Button
+                  tone="ghost"
+                  size="sm"
+                  type="submit"
+                  className="w-full justify-center px-4 py-2.5 text-sm hover:bg-secondary/80 lg:w-auto"
+                >
+                  退出登录
+                </Button>
+              </form>
+            </nav>
+          </div>
         </div>
       </header>
       <main className="mx-auto max-w-7xl px-5 py-8 md:px-8">{children}</main>
@@ -136,7 +166,10 @@ export function PublicShell({
               : "flex flex-wrap items-center justify-between gap-4",
           )}
         >
-          <Link href="/" className={cn(activePublicNavHref && "md:justify-self-start")}>
+          <Link
+            href="/"
+            className={cn(activePublicNavHref && "md:justify-self-start")}
+          >
             <MarketingBrandMark compact />
           </Link>
           {activePublicNavHref ? (
@@ -148,7 +181,8 @@ export function PublicShell({
                     href={item.href}
                     className={cn(
                       "top-nav-link text-sm",
-                      activePublicNavHref === item.href && "top-nav-link-active",
+                      activePublicNavHref === item.href &&
+                        "top-nav-link-active",
                     )}
                   >
                     {item.label}
@@ -175,7 +209,7 @@ export function PublicShell({
           <div className="max-w-sm">
             <MarketingBrandMark subtitle="共赴一场独一无二的金陵绮梦" />
             <p className="text-secondary-foreground/80 mt-4 text-sm leading-7">
-              {BRAND_NAME}：Not just dating tools, but connect the dots.
+              NJU Date：Not just dating tools, but connect the dots.
             </p>
           </div>
           <div className="grid gap-12 sm:grid-cols-2">
@@ -238,7 +272,11 @@ export function AdminShell({
   email: string;
 }) {
   return (
-    <AuthenticatedShellBase email={email} homeHref="/admin" navItems={ADMIN_NAV_ITEMS}>
+    <AuthenticatedShellBase
+      email={email}
+      homeHref="/admin"
+      navItems={ADMIN_NAV_ITEMS}
+    >
       {children}
     </AuthenticatedShellBase>
   );

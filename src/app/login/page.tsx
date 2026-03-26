@@ -71,15 +71,15 @@ export default async function LoginPage({
 
           <div className="max-w-xl">
             <p className="text-sm tracking-[0.28em] text-white/72">
-              CAMPUS MATCHING
+              NJU CAMPUS NETWALKING
             </p>
             <h1 className="mt-5 text-4xl leading-[1.18] text-white sm:text-5xl lg:text-[4.2rem]">
-              让一次校内相遇，
-              <br />
-              值得认真等待。
+              让两个有趣的灵魂相遇。
             </h1>
-            <p className="mt-5 max-w-lg text-sm leading-7 text-white/82 sm:text-base">
-              只对校内邮箱开放，不公开浏览，不做无限滑动。你先认真填写自己，再按节奏进入一次明确、低打扰的连接。
+            <p className="mt-6 max-w-md text-[0.98rem] leading-8 text-[rgba(255,245,239,0.9)] sm:text-[1.06rem]">
+              <span className="font-serif italic tracking-[0.035em] drop-shadow-[0_8px_24px_rgba(14,8,9,0.28)]">
+                Not just dating tools, but connect the dots.
+              </span>
             </p>
             <p className="mt-6 font-serif text-base tracking-[0.14em] text-[rgba(255,230,211,0.92)] italic sm:text-lg">
               for {allowedEmailDomainsLabel}
@@ -94,7 +94,7 @@ export default async function LoginPage({
             NJU Date
           </p>
           <h2 className="mt-6 text-4xl leading-[1.24] text-[color:var(--wine-deep)]">
-            欢迎回来
+            静候君至
           </h2>
           <p className="text-secondary-foreground/82 mt-4 text-sm leading-7 sm:text-base">
             使用你的 {allowedEmailDomainsLabel}{" "}
