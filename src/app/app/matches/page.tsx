@@ -3,55 +3,107 @@ import Link from "next/link";
 import { EmptyState, SectionHeader, SurfaceCard } from "@/components/site-ui";
 import { getMatchRecords } from "@/features/app/data";
 import { requireAppUser } from "@/lib/auth/session";
-import { formatDateTime, getMatchStatusLabel } from "@/lib/site";
+import { formatDateTime } from "@/lib/site";
+
+const detailButtonClassName =
+  "border-border bg-card text-secondary-foreground inline-flex items-center justify-center gap-2 rounded-full border px-5 py-3 text-sm transition hover:bg-secondary/80 hover:text-foreground";
+
+function getHistoryMatchStatusLabel(
+  status: "pending" | "matched" | "unmatched" | "error" | "expired",
+) {
+  switch (status) {
+    case "matched":
+      return "匹配成功";
+    case "unmatched":
+      return "未匹配";
+    case "pending":
+      return "待公布";
+    case "error":
+      return "结果异常";
+    case "expired":
+      return "已过期";
+  }
+}
 
 export default async function MatchesPage() {
   const user = await requireAppUser();
   const records = await getMatchRecords(user.id);
+  const [latestRecord, ...historyRecords] = records;
 
   return (
     <div className="grid gap-6">
       <SurfaceCard>
         <SectionHeader
           eyebrow="匹配记录"
-          title="查看历次结果与当前状态"
-          description="只有与你自己相关的结果会出现在这里。匹配成功后，可以进入详情页查看理由与联系入口。"
+          title="查看历次匹配结果"
+          description="若匹配成功，可以点击进入详情页查看理由与联系入口。"
         />
       </SurfaceCard>
-      {records.length > 0 ? (
+      {latestRecord ? (
         <div className="grid gap-4">
-          {records.map((record) => (
-            <SurfaceCard key={record.id}>
-              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <p className="text-muted-foreground text-xs tracking-[0.2em]">
-                    {record.batchLabel}
-                  </p>
-                  <h2 className="mt-2 text-2xl">
-                    {getMatchStatusLabel(record.status)}
-                  </h2>
-                  <p className="text-secondary-foreground/80 mt-3 text-sm leading-7">
-                    {record.previewText ?? "当前还没有可展示的预览信息。"}
-                  </p>
-                </div>
-                <div className="text-sm">
-                  <p>匹配得分：{record.score ?? "待公布"}</p>
-                  <p className="mt-2">
-                    发布时间：{formatDateTime(record.releasedAt)}
-                  </p>
-                  <p className="mt-2">
-                    查看状态：{record.viewedAt ? "已查看" : "未查看"}
-                  </p>
+          <div className="px-1">
+            <h2 className="text-2xl">最近一次匹配</h2>
+          </div>
+          <SurfaceCard>
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="text-muted-foreground text-xs tracking-[0.2em]">
+                  第 {latestRecord.roundNo} 轮
+                </p>
+                <h3 className="mt-2 text-2xl">
+                  {getHistoryMatchStatusLabel(latestRecord.status)}
+                </h3>
+              </div>
+              <div className="flex flex-col gap-4 text-sm md:items-end">
+                <p>
+                  发布时间：{formatDateTime(latestRecord.releasedAt)}
+                </p>
+                {latestRecord.status !== "unmatched" ? (
                   <Link
-                    href={`/app/matches/${record.id}`}
-                    className="text-primary mt-4 inline-block"
+                    href={`/app/matches/${latestRecord.id}`}
+                    className={detailButtonClassName}
                   >
                     查看详情
                   </Link>
-                </div>
+                ) : null}
               </div>
-            </SurfaceCard>
-          ))}
+            </div>
+          </SurfaceCard>
+
+          {historyRecords.length > 0 ? (
+            <>
+              <div className="px-1 pt-2">
+                <h2 className="text-2xl">历史匹配</h2>
+              </div>
+              <div className="grid gap-4">
+                {historyRecords.map((record) => (
+                  <SurfaceCard key={record.id}>
+                    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                      <div>
+                        <p className="text-muted-foreground text-xs tracking-[0.2em]">
+                          第 {record.roundNo} 轮
+                        </p>
+                        <h3 className="mt-2 text-2xl">
+                          {getHistoryMatchStatusLabel(record.status)}
+                        </h3>
+                      </div>
+                      <div className="flex flex-col gap-4 text-sm md:items-end">
+                        <p>发布时间：{formatDateTime(record.releasedAt)}</p>
+                        {record.status !== "unmatched" ? (
+                          <Link
+                            href={`/app/matches/${record.id}`}
+                            className={detailButtonClassName}
+                          >
+                            查看详情
+                          </Link>
+                        ) : null}
+                      </div>
+                    </div>
+                  </SurfaceCard>
+                ))}
+              </div>
+            </>
+          ) : null}
         </div>
       ) : (
         <EmptyState

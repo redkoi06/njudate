@@ -52,12 +52,21 @@ describe("match visibility", () => {
       order: {
         data: [
           {
-            id: "result-published",
+            id: "result-latest",
             batch_id: "batch-published",
             status: "matched",
-            preview_text: "preview",
+            preview_text: "latest preview",
             score: 88,
             viewed_at: null,
+            released_at: "2026-03-26T10:00:00Z",
+          },
+          {
+            id: "result-earlier",
+            batch_id: "batch-earlier",
+            status: "unmatched",
+            preview_text: "earlier preview",
+            score: null,
+            viewed_at: "2026-03-25T10:05:00Z",
             released_at: "2026-03-25T10:00:00Z",
           },
           {
@@ -79,11 +88,19 @@ describe("match visibility", () => {
           {
             id: "batch-published",
             label: "第 1 轮",
+            round_no: 1,
+            status: "published",
+          },
+          {
+            id: "batch-earlier",
+            label: "第 0 轮",
+            round_no: 0,
             status: "published",
           },
           {
             id: "batch-failed",
             label: "第 2 轮",
+            round_no: 2,
             status: "failed",
           },
         ],
@@ -107,9 +124,15 @@ describe("match visibility", () => {
 
     const records = await getMatchRecords("user-1");
 
-    expect(records).toHaveLength(1);
-    expect(records[0]?.id).toBe("result-published");
+    expect(matchResultsBuilder.order).toHaveBeenCalledWith("released_at", {
+      ascending: false,
+    });
+    expect(records).toHaveLength(2);
+    expect(records[0]?.id).toBe("result-latest");
     expect(records[0]?.batchLabel).toBe("第 1 轮");
+    expect(records[0]?.roundNo).toBe(1);
+    expect(records[1]?.id).toBe("result-earlier");
+    expect(records[1]?.roundNo).toBe(0);
   });
 
   it("returns null for a released result whose batch is not published", async () => {
@@ -135,6 +158,7 @@ describe("match visibility", () => {
       single: {
         data: {
           label: "第 3 轮",
+          round_no: 3,
           status: "failed",
         },
         error: null,
@@ -224,7 +248,7 @@ describe("match visibility", () => {
     expect(notifications[0]?.id).toBe("notification-general");
   });
 
-  it("keeps paging notifications until it collects eight visible items", async () => {
+  it("keeps paging notifications until it collects three visible items", async () => {
     const hiddenPage = Array.from({ length: 24 }, (_, index) => ({
       id: `notification-hidden-${index + 1}`,
       title: "未发布结果",
@@ -235,7 +259,7 @@ describe("match visibility", () => {
       source_type: "match_result",
       source_id: `result-hidden-${index + 1}`,
     }));
-    const visiblePage = Array.from({ length: 8 }, (_, index) => ({
+    const visiblePage = Array.from({ length: 3 }, (_, index) => ({
       id: `notification-visible-${index + 1}`,
       title: `普通通知 ${index + 1}`,
       body: "body",
@@ -291,9 +315,9 @@ describe("match visibility", () => {
 
     const notifications = await getNotifications("user-1");
 
-    expect(notifications).toHaveLength(8);
+    expect(notifications).toHaveLength(3);
     expect(notifications[0]?.id).toBe("notification-visible-1");
-    expect(notifications[7]?.id).toBe("notification-visible-8");
+    expect(notifications[2]?.id).toBe("notification-visible-3");
     expect(notificationsBuilder.range).toHaveBeenCalledTimes(2);
   });
 });

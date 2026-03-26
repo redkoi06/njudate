@@ -89,6 +89,7 @@ export type ParticipationState = {
 export type MatchRecord = {
   id: string;
   batchLabel: string;
+  roundNo: number;
   status: "pending" | "matched" | "unmatched" | "error" | "expired";
   previewText: string | null;
   score: number | null;
@@ -553,7 +554,7 @@ export async function getNotifications(userId: string) {
   const pageSize = 24;
   const visibleNotifications: NotificationItem[] = [];
 
-  for (let page = 0; visibleNotifications.length < 8; page += 1) {
+  for (let page = 0; visibleNotifications.length < 3; page += 1) {
     const rangeFrom = page * pageSize;
     const rangeTo = rangeFrom + pageSize - 1;
     const { data, error } = await supabase
@@ -628,7 +629,7 @@ export async function getNotifications(userId: string) {
     }
   }
 
-  return visibleNotifications.slice(0, 8);
+  return visibleNotifications.slice(0, 3);
 }
 
 export async function getMatchRecords(userId: string) {
@@ -638,7 +639,7 @@ export async function getMatchRecords(userId: string) {
     .select("id, batch_id, status, preview_text, score, viewed_at, released_at")
     .eq("user_id", userId)
     .not("released_at", "is", null)
-    .order("created_at", { ascending: false });
+    .order("released_at", { ascending: false });
 
   if (resultsError) {
     throw resultsError;
@@ -651,24 +652,31 @@ export async function getMatchRecords(userId: string) {
   const batchIds = [...new Set(results.map((item) => item.batch_id))];
   const { data: batches, error: batchesError } = await supabase
     .from("match_batches")
-    .select("id, label, status")
+    .select("id, label, round_no, status")
     .in("id", batchIds);
 
   if (batchesError) {
     throw batchesError;
   }
 
-  const labelMap = new Map(
+  const batchMap = new Map(
     (batches ?? [])
       .filter((batch) => batch.status === "published")
-      .map((batch) => [batch.id, batch.label]),
+      .map((batch) => [
+        batch.id,
+        {
+          label: batch.label,
+          roundNo: batch.round_no,
+        },
+      ]),
   );
 
-  const visibleResults = results.filter((item) => labelMap.has(item.batch_id));
+  const visibleResults = results.filter((item) => batchMap.has(item.batch_id));
 
   return visibleResults.map((item) => ({
     id: item.id,
-    batchLabel: labelMap.get(item.batch_id) ?? "未命名轮次",
+    batchLabel: batchMap.get(item.batch_id)?.label ?? "未命名轮次",
+    roundNo: batchMap.get(item.batch_id)?.roundNo ?? 0,
     status: item.status,
     previewText: item.preview_text,
     score: item.score,
@@ -699,7 +707,7 @@ export async function getMatchDetail(userId: string, matchId: string) {
 
   const { data: batch, error: batchError } = await supabase
     .from("match_batches")
-    .select("label, status")
+    .select("label, round_no, status")
     .eq("id", record.batch_id)
     .single();
 
@@ -732,6 +740,7 @@ export async function getMatchDetail(userId: string, matchId: string) {
   return {
     id: record.id,
     batchLabel: batch.label,
+    roundNo: batch.round_no,
     status: record.status,
     previewText: record.preview_text,
     score: record.score,

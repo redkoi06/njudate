@@ -19,7 +19,7 @@ export default async function ParticipationPage() {
         description={
           participation.label
             ? `报名截止：${formatDateTime(participation.signupEndAt)}，结果公布：${formatDateTime(participation.resultPublishAt)}。`
-            : "当新的匹配轮次开放后，你可以在这里决定本周是否加入。"
+            : "当新的匹配轮次开放后，你可以在这里决定本轮是否参与。"
         }
       />
       <div className="mt-8 grid gap-4">

@@ -1,5 +1,6 @@
-import { Button, SectionHeader, SurfaceCard } from "@/components/site-ui";
-import { markNotificationReadAction } from "@/features/app/actions";
+import Link from "next/link";
+
+import { SectionHeader, SurfaceCard } from "@/components/site-ui";
 import {
   getAnnouncements,
   getDashboardData,
@@ -14,6 +15,8 @@ export default async function DashboardPage() {
     getAnnouncements().catch(() => []),
     getNotifications(user.id),
   ]);
+  const notificationActionClassName =
+    "border-border bg-card text-secondary-foreground inline-flex items-center justify-center gap-2 rounded-full border px-5 py-3 text-sm shadow-[0_12px_24px_rgba(31,24,24,0.06)] transition hover:bg-secondary/80 hover:text-foreground";
 
   return (
     <div className="grid gap-6">
@@ -66,25 +69,19 @@ export default async function DashboardPage() {
                 key={item.id}
                 className="border-border rounded-2xl border p-4"
               >
-                <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <p className="text-sm">{item.title}</p>
                     <p className="text-secondary-foreground/80 mt-2 text-sm leading-7">
                       {item.body}
                     </p>
                   </div>
-                  {!item.isRead ? (
-                    <form action={markNotificationReadAction}>
-                      <input
-                        type="hidden"
-                        name="notificationId"
-                        value={item.id}
-                      />
-                      <Button size="sm" tone="soft" type="submit">
-                        标记已读
-                      </Button>
-                    </form>
-                  ) : null}
+                  <Link
+                    href="/app/matches"
+                    className={notificationActionClassName}
+                  >
+                    立即查看
+                  </Link>
                 </div>
               </div>
             ))

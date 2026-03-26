@@ -235,6 +235,44 @@ async function createNotification(input: {
     .eq("id", data.id);
 }
 
+async function getPublishedMatchRoundNo(input: {
+  matchResultId: string;
+  userId: string;
+}) {
+  const supabase = await createServerSupabaseClient();
+  const { data: matchResult, error: matchResultError } = await supabase
+    .from("match_results")
+    .select("batch_id")
+    .eq("id", input.matchResultId)
+    .eq("user_id", input.userId)
+    .not("released_at", "is", null)
+    .maybeSingle();
+
+  if (matchResultError) {
+    throw matchResultError;
+  }
+
+  if (!matchResult?.batch_id) {
+    throw new Error("匹配结果不存在或尚未发布。");
+  }
+
+  const { data: batch, error: batchError } = await supabase
+    .from("match_batches")
+    .select("round_no, status")
+    .eq("id", matchResult.batch_id)
+    .single();
+
+  if (batchError) {
+    throw batchError;
+  }
+
+  if (batch.status !== "published") {
+    throw new Error("匹配结果所属批次尚未发布。");
+  }
+
+  return batch.round_no;
+}
+
 function parseContactPayload(payload: unknown, currentUserId: string) {
   if (!payload || typeof payload !== "object") {
     return null;
@@ -738,6 +776,10 @@ export async function triggerMatchContactAction(formData: FormData) {
   const { supabase, user } = await requireAuthenticatedClient();
   const matchPairId = stringField(formData, "matchPairId");
   const matchResultId = stringField(formData, "matchResultId");
+  const roundNo = await getPublishedMatchRoundNo({
+    matchResultId,
+    userId: user.id,
+  });
 
   const { data, error } = await supabase.rpc("trigger_match_contact", {
     p_match_pair_id: matchPairId,
@@ -752,7 +794,7 @@ export async function triggerMatchContactAction(formData: FormData) {
     await Promise.all([
       createNotification({
         userId: payload.left.userId,
-        title: "联系方式已开放",
+        title: `第 ${roundNo} 轮联系方式已开放`,
         body: `你与 ${payload.right.nickname} 的联系方式已开放，可以通过校内邮箱继续交流。`,
         level: "success",
         sourceType: "match_contact",
@@ -761,7 +803,7 @@ export async function triggerMatchContactAction(formData: FormData) {
       }),
       createNotification({
         userId: payload.right.userId,
-        title: "联系方式已开放",
+        title: `第 ${roundNo} 轮联系方式已开放`,
         body: `你与 ${payload.left.nickname} 的联系方式已开放，可以通过校内邮箱继续交流。`,
         level: "success",
         sourceType: "match_contact",
@@ -772,10 +814,8 @@ export async function triggerMatchContactAction(formData: FormData) {
   }
 
   revalidatePath("/app/matches");
-  if (matchResultId) {
-    revalidatePath(`/app/matches/${matchResultId}`);
-  }
-  redirect("/app/matches");
+  revalidatePath(`/app/matches/${matchResultId}`);
+  redirect(`/app/matches/${matchResultId}`);
 }
 
 export async function markMatchViewedAction(formData: FormData) {

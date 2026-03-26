@@ -30,13 +30,19 @@ export default async function SettingsPage({
         <SectionHeader
           eyebrow="设置"
           title="通知偏好与账号安全"
-          description="关键通知仍会按平台规则保留，非关键提醒可以在这里调整。"
         />
+      </SurfaceCard>
+
+      <SurfaceCard>
+        <h2 className="text-2xl">通知偏好</h2>
+        <p className="text-secondary-foreground/80 mt-3 text-sm leading-7">
+          请选择是否接收以下邮件通知。
+        </p>
         <SettingsForm action={saveSettingsAction} defaultValues={settings} />
       </SurfaceCard>
 
       <SurfaceCard>
-        <h2 className="text-2xl">删除账号</h2>
+        <h2 className="text-2xl">账号安全</h2>
         <DeleteAccountPanel
           {...(accountError ? { errorMessage: accountError } : {})}
         />

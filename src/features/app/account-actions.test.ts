@@ -5,6 +5,8 @@ const {
   createServerSupabaseClientMock,
   createAdminSupabaseClientMock,
   getRegistrationOpenMock,
+  revalidatePathMock,
+  sendTransactionalEmailMock,
 } = vi.hoisted(() => ({
   redirectMock: vi.fn((url: string) => {
     throw new Error(`REDIRECT:${url}`);
@@ -12,6 +14,8 @@ const {
   createServerSupabaseClientMock: vi.fn(),
   createAdminSupabaseClientMock: vi.fn(),
   getRegistrationOpenMock: vi.fn(),
+  revalidatePathMock: vi.fn(),
+  sendTransactionalEmailMock: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({
@@ -19,7 +23,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("next/cache", () => ({
-  revalidatePath: vi.fn(),
+  revalidatePath: revalidatePathMock,
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
@@ -43,7 +47,7 @@ vi.mock("@/features/app/data", () => ({
 }));
 
 vi.mock("@/lib/email/send", () => ({
-  sendTransactionalEmail: vi.fn(),
+  sendTransactionalEmail: sendTransactionalEmailMock,
 }));
 
 vi.mock("@/lib/auth/registration", () => ({
@@ -54,6 +58,7 @@ import {
   deleteOwnAccountAction,
   markNotificationReadAction,
   signInWithPasswordAction,
+  triggerMatchContactAction,
 } from "@/features/app/actions";
 
 function getQueryParam(url: string, key: string) {
@@ -80,6 +85,34 @@ function createAppUsersTableBuilder(data: Record<string, unknown> | null) {
     eqMock,
     maybeSingleMock,
     selectMock,
+  };
+}
+
+function createMaybeSingleBuilder(data: Record<string, unknown> | null) {
+  const maybeSingleMock = vi.fn().mockResolvedValue({
+    data,
+    error: null,
+  });
+
+  return {
+    builder: {
+      maybeSingle: maybeSingleMock,
+    },
+    maybeSingleMock,
+  };
+}
+
+function createSingleBuilder(data: Record<string, unknown>) {
+  const singleMock = vi.fn().mockResolvedValue({
+    data,
+    error: null,
+  });
+
+  return {
+    builder: {
+      single: singleMock,
+    },
+    singleMock,
   };
 }
 
@@ -118,6 +151,8 @@ describe("account actions", () => {
     rpcMock.mockReset();
     adminRpcMock.mockReset();
     operationLogsInsertMock.mockReset();
+    revalidatePathMock.mockReset();
+    sendTransactionalEmailMock.mockReset();
     serverAppUsers.selectMock.mockClear();
     serverAppUsers.eqMock.mockClear();
     serverAppUsers.maybeSingleMock.mockResolvedValue({
@@ -130,6 +165,9 @@ describe("account actions", () => {
     });
 
     getRegistrationOpenMock.mockResolvedValue(true);
+    sendTransactionalEmailMock.mockResolvedValue({
+      ok: true,
+    });
     adminRpcMock.mockImplementation(async (fn: string) => {
       if (fn === "lookup_auth_user_by_email") {
         return {
@@ -400,6 +438,149 @@ describe("account actions", () => {
     );
     expect(signOutMock).toHaveBeenCalledTimes(1);
     expect(redirectUrl).toBe("/");
+  });
+
+  it("keeps the user on the current match detail page after triggering contact", async () => {
+    const matchResultId = "result-1";
+    const matchPairId = "pair-1";
+    const matchResultLookup = createMaybeSingleBuilder({
+      batch_id: "batch-1",
+    });
+    const batchLookup = createSingleBuilder({
+      round_no: 6,
+      status: "published",
+    });
+    const notificationInsertSingleMock = vi
+      .fn()
+      .mockResolvedValue({ data: { id: "notification-1" }, error: null });
+    const notificationSelectMock = vi.fn().mockReturnValue({
+      single: notificationInsertSingleMock,
+    });
+    const notificationInsertMock = vi.fn().mockReturnValue({
+      select: notificationSelectMock,
+    });
+    const notificationUpdateEqMock = vi
+      .fn()
+      .mockResolvedValue({ error: null });
+    const notificationUpdateMock = vi.fn().mockReturnValue({
+      eq: notificationUpdateEqMock,
+    });
+
+    getUserMock.mockResolvedValue({
+      data: {
+        user: {
+          id: deleteActionUserId,
+        },
+      },
+    });
+    rpcMock.mockResolvedValue({
+      data: {
+        left_user: {
+          user_id: deleteActionUserId,
+          nickname: "当前用户",
+          email: "self@smail.nju.edu.cn",
+        },
+        right_user: {
+          user_id: "other-user-1",
+          nickname: "对方用户",
+          email: "other@smail.nju.edu.cn",
+        },
+      },
+      error: null,
+    });
+    createServerSupabaseClientMock.mockResolvedValue({
+      auth: {
+        getUser: getUserMock,
+        signInWithPassword: signInWithPasswordMock,
+        signOut: signOutMock,
+      },
+      from: vi.fn((table: string) => {
+        if (table === "app_users") {
+          return serverAppUsers.builder;
+        }
+
+        if (table === "match_results") {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnValue({
+                  not: vi.fn().mockReturnValue(matchResultLookup.builder),
+                }),
+              }),
+            }),
+          };
+        }
+
+        if (table === "match_batches") {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue(batchLookup.builder),
+            }),
+          };
+        }
+
+        throw new Error(`Unexpected server table: ${table}`);
+      }),
+      rpc: rpcMock,
+    });
+    createAdminSupabaseClientMock.mockReturnValue({
+      from: vi.fn((table: string) => {
+        if (table === "notifications") {
+          return {
+            insert: notificationInsertMock,
+            update: notificationUpdateMock,
+          };
+        }
+
+        throw new Error(`Unexpected admin table: ${table}`);
+      }),
+    });
+
+    const formData = new FormData();
+    formData.set("matchPairId", matchPairId);
+    formData.set("matchResultId", matchResultId);
+
+    const redirectUrl = await captureRedirect(
+      triggerMatchContactAction(formData),
+    );
+
+    expect(rpcMock).toHaveBeenCalledWith("trigger_match_contact", {
+      p_match_pair_id: matchPairId,
+    });
+    expect(revalidatePathMock).toHaveBeenCalledWith("/app/matches");
+    expect(revalidatePathMock).toHaveBeenCalledWith(
+      `/app/matches/${matchResultId}`,
+    );
+    expect(redirectUrl).toBe(`/app/matches/${matchResultId}`);
+    expect(notificationInsertMock).toHaveBeenCalledTimes(2);
+    expect(notificationInsertMock).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        title: "第 6 轮联系方式已开放",
+        body: "你与 对方用户 的联系方式已开放，可以通过校内邮箱继续交流。",
+      }),
+    );
+    expect(notificationInsertMock).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        title: "第 6 轮联系方式已开放",
+        body: "你与 当前用户 的联系方式已开放，可以通过校内邮箱继续交流。",
+      }),
+    );
+    expect(notificationUpdateEqMock).toHaveBeenCalledTimes(2);
+    expect(sendTransactionalEmailMock).toHaveBeenCalledTimes(2);
+    expect(sendTransactionalEmailMock).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        subject: "第 6 轮联系方式已开放",
+      }),
+    );
+    expect(sendTransactionalEmailMock).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        subject: "第 6 轮联系方式已开放",
+      }),
+    );
   });
 
   it("marks a notification as read and revalidates the dashboard", async () => {
