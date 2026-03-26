@@ -8,7 +8,7 @@ import type { ReactNode } from "react";
 import brandMark from "../../icon/icon.png";
 import { signOutAction } from "@/features/app/actions";
 import { isAuthenticatedNavItemActive } from "@/lib/navigation";
-import { ADMIN_NAV_ITEMS, BRAND_NAME, USER_NAV_ITEMS } from "@/lib/site";
+import { ADMIN_NAV_ITEMS, USER_NAV_ITEMS } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
 import { BrandMark, Button } from "./site-ui";
@@ -162,7 +162,7 @@ export function PublicShell({
           className={cn(
             "mx-auto w-full max-w-7xl px-5 py-4 md:px-8",
             activePublicNavHref
-              ? "grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-3 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]"
+              ? "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-3 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]"
               : "flex flex-wrap items-center justify-between gap-4",
           )}
         >
@@ -189,7 +189,7 @@ export function PublicShell({
                   </Link>
                 ))}
               </nav>
-              <div className="flex items-center justify-end md:col-start-3 md:row-start-1 md:justify-self-end">
+              <div className="col-start-2 row-start-1 flex items-center justify-end justify-self-end md:col-start-3 md:row-start-1 md:justify-self-end">
                 {authAction}
               </div>
             </>
