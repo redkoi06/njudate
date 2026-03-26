@@ -90,18 +90,21 @@ export function buildHomeSteps() {
     {
       number: "01",
       title: "试以此简，澄怀观心",
+      photo: "/images/photos/photo_2.png",
       description:
         "我们不随波逐流。填写问卷的同时，重新构建自己的精神原乡。兴趣爱好，相处方式，边界感和关系期待，都由你自己决定。",
     },
     {
       number: "02",
       title: "诚心作缄，共赴一纸云蓝",
+      photo: "/images/photos/photo_3.png",
       description:
         "欲速则不达，你可以自由把握节奏，选择是否参加。等你准备好，青鸾随时恭候。"
     },
     {
       number: "03",
       title: "期于旧约，静候锦书而至",
+      photo: "/images/photos/photo_4.png",
       description:
         "你会在约定时间收到信笺。先以笺识人，再与合适的人相遇。"
     },

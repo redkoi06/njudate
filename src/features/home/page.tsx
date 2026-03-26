@@ -283,7 +283,7 @@ export default async function HomePage() {
             description="没有浪费时间的复杂流程，无须主动让渡选择权。跟随自己的本心，剩下的交给时间和青鸾。"
           />
 
-          <div className="mt-12 grid gap-6 xl:grid-cols-3">
+          <div className="mt-12 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
             {steps.map((step) => (
               <article
                 key={step.number}
@@ -291,10 +291,10 @@ export default async function HomePage() {
               >
                 <div className="relative h-72 overflow-hidden">
                   <Image
-                    src={HOME_PLACEHOLDER_PHOTO}
+                    src={step.photo}
                     alt={`${step.title} 占位图`}
                     fill
-                    sizes="(min-width: 1280px) 33vw, 100vw"
+                    sizes="(min-width: 1280px) 33vw, (min-width: 768px) 50vw, 100vw"
                     className="object-cover transition duration-700 group-hover:scale-105"
                   />
                   <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(37,22,25,0.12),rgba(37,22,25,0.72))]" />
@@ -326,62 +326,47 @@ export default async function HomePage() {
 
             <div className="mt-12 grid gap-6 xl:grid-cols-[1.04fr_0.96fr]">
               <div className="rounded-[34px] border border-[color:rgba(139,74,82,0.1)] bg-white/84 p-6 md:p-8">
-                <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-                  <div className="relative min-h-[320px] overflow-hidden rounded-[28px]">
-                    <Image
-                      src={HOME_PLACEHOLDER_PHOTO}
-                      alt="Why NJU Date 展示图"
-                      fill
-                      sizes="(min-width: 1280px) 32vw, 100vw"
-                      className="object-cover"
-                    />
-                    <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(44,24,28,0.06),rgba(44,24,28,0.78))]" />
-                    <div className="absolute inset-x-5 bottom-5 text-white">
-                      <p className="text-xs tracking-[0.28em] text-white/72">
-                        WHY NJU DATE
-                      </p>
-                      <p className="mt-3 font-serif text-3xl leading-[1.45]">
-                        减少无意义的打扰，选择适合自己的相处方式。
-                      </p>
-                    </div>
+                <div className="flex flex-col gap-6">
+                  <div className="rounded-[28px] border border-[color:rgba(139,74,82,0.08)] bg-[linear-gradient(180deg,rgba(250,247,244,0.96),rgba(245,240,238,0.82))] px-5 py-6 md:px-6 md:py-7">
+                    <p className="font-serif text-3xl leading-[1.45] text-foreground">
+                      减少无意义的打扰，选择适合自己的相处方式。
+                    </p>
                   </div>
 
-                  <div className="flex flex-col justify-between gap-6">
-                    <div>
-                      <p className="text-xs tracking-[0.28em] text-[color:var(--wine-medium)]">
-                        我们的愿景：
-                      </p>
-                      <p className="text-secondary-foreground/85 mt-4 text-sm leading-8">
-                        NJU Date只做好一件事：让两个有趣的灵魂相遇。我们衷心希望：帮助你认真理解自己、将参与的选择权交给你、在固定时间统一揭晓、只在彻底确认后开放有限联系。产品的价值不在于“更快”，而在于“更自然、更自主、更值得信任”。
-                      </p>
-                    </div>
+                  <div>
+                    <p className="text-xs tracking-[0.28em] text-[color:var(--wine-medium)]">
+                      我们的愿景：
+                    </p>
+                    <p className="text-secondary-foreground/85 mt-4 text-sm leading-8">
+                      NJU Date只做好一件事：让两个有趣的灵魂相遇。我们衷心希望：帮助你认真理解自己、将参与的选择权交给你、在固定时间统一揭晓、只在彻底确认后开放有限联系。产品的价值不在于“更快”，而在于“更自然、更自主、更值得信任”。
+                    </p>
+                  </div>
 
-                    <div className="grid gap-3">
-                      {HOME_COMMITMENTS.map((item, index) => {
-                        const Icon =
-                          commitmentIcons[index % commitmentIcons.length] ??
-                          ShieldUser;
+                  <div className="grid gap-3">
+                    {HOME_COMMITMENTS.map((item, index) => {
+                      const Icon =
+                        commitmentIcons[index % commitmentIcons.length] ??
+                        ShieldUser;
 
-                        return (
-                          <div
-                            key={item.title}
-                            className="flex items-start gap-4 rounded-[24px] border border-[color:rgba(139,74,82,0.08)] bg-[color:rgba(250,247,244,0.8)] px-4 py-4"
-                          >
-                            <div className="bg-primary/10 text-primary flex size-10 shrink-0 items-center justify-center rounded-2xl">
-                              <Icon size={18} />
-                            </div>
-                            <div>
-                              <p className="text-sm text-foreground">
-                                {item.title}
-                              </p>
-                              <p className="text-secondary-foreground/80 mt-2 text-xs leading-6">
-                                {item.description}
-                              </p>
-                            </div>
+                      return (
+                        <div
+                          key={item.title}
+                          className="flex items-start gap-4 rounded-[24px] border border-[color:rgba(139,74,82,0.08)] bg-[color:rgba(250,247,244,0.8)] px-4 py-4"
+                        >
+                          <div className="bg-primary/10 text-primary flex size-10 shrink-0 items-center justify-center rounded-2xl">
+                            <Icon size={18} />
                           </div>
-                        );
-                      })}
-                    </div>
+                          <div>
+                            <p className="text-sm text-foreground">
+                              {item.title}
+                            </p>
+                            <p className="text-secondary-foreground/80 mt-2 text-xs leading-6">
+                              {item.description}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
