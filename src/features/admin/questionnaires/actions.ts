@@ -172,6 +172,8 @@ export async function importQuestionnaireDefinitionAction(formData: FormData) {
       scale_max: question.kind === "scale" ? question.scaleMax : null,
       scale_left_label:
         question.kind === "scale" ? question.scaleLeftLabel : null,
+      scale_middle_label:
+        question.kind === "scale" ? question.scaleMiddleLabel : null,
       scale_right_label:
         question.kind === "scale" ? question.scaleRightLabel : null,
       sort_order: question.sortOrder,

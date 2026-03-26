@@ -31,9 +31,52 @@ type ProfileFieldName =
   | "campus"
   | "birthYear";
 type ProfileFormErrors = Partial<Record<ProfileFieldName, string>>;
+type ProfileFormSnapshot = {
+  nickname: string;
+  gender: string;
+  grade: string;
+  department: string;
+  campus: string;
+  birthYear: string;
+};
 
 function includesOption(options: readonly string[], value: string) {
   return options.some((option) => option === value);
+}
+
+function buildProfileSnapshot(input: {
+  nickname: string;
+  gender: string;
+  grade: string;
+  department: string;
+  campus: string;
+  birthYear: string;
+}): ProfileFormSnapshot {
+  return {
+    nickname: input.nickname.trim(),
+    gender: input.gender,
+    grade: input.grade,
+    department: sanitizeDepartmentForGrade(
+      input.grade,
+      input.department.trim(),
+    ),
+    campus: input.campus,
+    birthYear: input.birthYear.trim(),
+  };
+}
+
+function isSameProfileSnapshot(
+  left: ProfileFormSnapshot,
+  right: ProfileFormSnapshot,
+) {
+  return (
+    left.nickname === right.nickname &&
+    left.gender === right.gender &&
+    left.grade === right.grade &&
+    left.department === right.department &&
+    left.campus === right.campus &&
+    left.birthYear === right.birthYear
+  );
 }
 
 function validateProfileForm(input: {
@@ -156,13 +199,16 @@ function PickerField({
         <ChevronDown
           className={cn(
             "text-muted-foreground size-4 shrink-0 transition",
-            open && "rotate-180 text-foreground",
+            open && "text-foreground rotate-180",
           )}
         />
       </button>
       {open ? (
         <div className={pickerPanelClassName}>
-          <ul role="listbox" className="max-h-64 space-y-1 overflow-y-auto pr-1">
+          <ul
+            role="listbox"
+            className="max-h-64 space-y-1 overflow-y-auto pr-1"
+          >
             {options.map((option) => {
               const selected = option === value;
 
@@ -218,7 +264,9 @@ function DepartmentField({
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const isOpen = open && !readOnly;
-  const filteredOptions = options.filter((option) => option.includes(value.trim()));
+  const filteredOptions = options.filter((option) =>
+    option.includes(value.trim()),
+  );
 
   useEffect(() => {
     if (!isOpen) {
@@ -291,7 +339,7 @@ function DepartmentField({
             <ChevronDown
               className={cn(
                 "size-4 shrink-0 transition",
-                isOpen && "rotate-180 text-foreground",
+                isOpen && "text-foreground rotate-180",
               )}
             />
           </button>
@@ -300,7 +348,10 @@ function DepartmentField({
       {isOpen ? (
         <div className={pickerPanelClassName}>
           {filteredOptions.length > 0 ? (
-            <ul role="listbox" className="max-h-64 space-y-1 overflow-y-auto pr-1">
+            <ul
+              role="listbox"
+              className="max-h-64 space-y-1 overflow-y-auto pr-1"
+            >
               {filteredOptions.map((option) => {
                 const selected = option === value;
 
@@ -334,7 +385,7 @@ function DepartmentField({
               })}
             </ul>
           ) : (
-            <div className="text-muted-foreground rounded-2xl bg-muted/70 px-3 py-3 text-sm">
+            <div className="text-muted-foreground bg-muted/70 rounded-2xl px-3 py-3 text-sm">
               没有匹配项，请继续输入完整院系名称。
             </div>
           )}
@@ -352,11 +403,15 @@ function DepartmentField({
   );
 }
 
-function SubmitButton() {
+function SubmitButton({ hasChanges }: { hasChanges: boolean }) {
   const { pending } = useFormStatus();
 
   return (
-    <Button type="submit" disabled={pending}>
+    <Button
+      type="submit"
+      disabled={pending || !hasChanges}
+      className="disabled:cursor-default"
+    >
       保存资料
     </Button>
   );
@@ -376,16 +431,30 @@ export function ProfileForm({
     birthYear: string;
   };
 }) {
+  const initialSnapshot = buildProfileSnapshot(defaultValues);
+  const [nickname, setNickname] = useState(defaultValues.nickname);
   const [gender, setGender] = useState(defaultValues.gender);
   const [grade, setGrade] = useState(defaultValues.grade);
   const [department, setDepartment] = useState(() =>
     sanitizeDepartmentForGrade(defaultValues.grade, defaultValues.department),
   );
   const [campus, setCampus] = useState(defaultValues.campus);
+  const [birthYear, setBirthYear] = useState(defaultValues.birthYear);
   const [errors, setErrors] = useState<ProfileFormErrors>({});
   const isFirstYear = grade === "大一";
   const departmentOptions = getDepartmentOptionsForGrade(grade);
   const { minBirthYear, maxBirthYear } = getBirthYearRange();
+  const hasChanges = !isSameProfileSnapshot(
+    buildProfileSnapshot({
+      nickname,
+      gender,
+      grade,
+      department,
+      campus,
+      birthYear,
+    }),
+    initialSnapshot,
+  );
 
   function clearError(name: ProfileFieldName) {
     setErrors((current) => {
@@ -436,9 +505,12 @@ export function ProfileForm({
           autoCorrect="off"
           autoCapitalize="off"
           spellCheck={false}
-          defaultValue={defaultValues.nickname}
+          value={nickname}
           error={errors.nickname}
-          onChange={() => clearError("nickname")}
+          onChange={(event) => {
+            setNickname(event.target.value);
+            clearError("nickname");
+          }}
           required
         />
 
@@ -454,8 +526,7 @@ export function ProfileForm({
                   "border-border flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm transition",
                   gender === option &&
                     "border-primary bg-secondary/65 text-foreground shadow-[0_14px_32px_rgba(139,74,82,0.08)]",
-                  errors.gender &&
-                    "border-[color:var(--status-warning)]/45",
+                  errors.gender && "border-[color:var(--status-warning)]/45",
                 )}
               >
                 <input
@@ -528,17 +599,20 @@ export function ProfileForm({
           autoCapitalize="off"
           spellCheck={false}
           maxLength={4}
-          defaultValue={defaultValues.birthYear}
+          value={birthYear}
           min={minBirthYear}
           max={maxBirthYear}
           placeholder={`${minBirthYear}-${maxBirthYear}`}
           error={errors.birthYear}
-          onChange={() => clearError("birthYear")}
+          onChange={(event) => {
+            setBirthYear(event.target.value);
+            clearError("birthYear");
+          }}
           required
         />
       </div>
       <div className="flex justify-end">
-        <SubmitButton />
+        <SubmitButton hasChanges={hasChanges} />
       </div>
     </form>
   );

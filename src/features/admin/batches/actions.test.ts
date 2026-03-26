@@ -66,7 +66,8 @@ import {
 } from "@/features/admin/batches/actions";
 
 function getQueryParam(url: string, key: string) {
-  const [, query = ""] = url.split("?");
+  const [, queryWithHash = ""] = url.split("?");
+  const [query = ""] = queryWithHash.split("#");
   return new URLSearchParams(query).get(key);
 }
 
@@ -132,6 +133,42 @@ describe("admin batch actions", () => {
 
     expect(getQueryParam(redirectUrl, "error")).toContain(
       "signup_start_at < signup_end_at < match_run_at < result_publish_at",
+    );
+  });
+
+  it("shows the create-batch error when an unfinished batch already exists", async () => {
+    createAdminSupabaseClientMock.mockReturnValue({
+      from: vi.fn((table: string) => {
+        if (table !== "match_batches") {
+          throw new Error(`Unexpected table: ${table}`);
+        }
+
+        return {
+          select: vi.fn().mockReturnValue({
+            in: vi.fn().mockResolvedValue({
+              count: 1,
+              error: null,
+            }),
+          }),
+        };
+      }),
+    });
+
+    const formData = new FormData();
+    formData.set(
+      "questionnaireVersionId",
+      "11111111-1111-4111-8111-111111111111",
+    );
+    formData.set("signupStartAt", "2026-03-25T10:00");
+    formData.set("signupEndAt", "2026-03-25T11:00");
+    formData.set("matchRunAt", "2026-03-25T12:00");
+    formData.set("resultPublishAt", "2026-03-25T13:00");
+
+    const redirectUrl = await captureRedirect(createBatchAction(formData));
+
+    expect(redirectUrl).toContain("#create-batch-feedback");
+    expect(getQueryParam(redirectUrl, "error")).toBe(
+      "当前已有未完成批次，不能再新建批次。",
     );
   });
 

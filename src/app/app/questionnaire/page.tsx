@@ -86,6 +86,7 @@ export default async function QuestionnairePage({
         answers={questionnaire.answers}
         sections={questionnaire.sections}
         disabled={isClosed}
+        hasDraft={questionnaire.draftSubmissionId !== null}
         saveDraftAction={saveQuestionnaireDraftAction}
         submitAction={submitQuestionnaireAction}
       />

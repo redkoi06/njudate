@@ -34,6 +34,12 @@ const scaleQuestionSchema = questionBaseSchema.extend({
   scaleMin: z.number().int("量表最小值必须是整数"),
   scaleMax: z.number().int("量表最大值必须是整数"),
   scaleLeftLabel: z.string().trim().min(1, "量表左侧文案不能为空"),
+  scaleMiddleLabel: z
+    .string()
+    .trim()
+    .min(1, "量表中间文案不能为空")
+    .nullish()
+    .transform((value) => value ?? null),
   scaleRightLabel: z.string().trim().min(1, "量表右侧文案不能为空"),
 });
 

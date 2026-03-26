@@ -254,6 +254,7 @@ export interface Database {
           questionnaire_version_id: UUID;
           scale_left_label: string | null;
           scale_max: number | null;
+          scale_middle_label: string | null;
           scale_min: number | null;
           scale_right_label: string | null;
           section_id: UUID;

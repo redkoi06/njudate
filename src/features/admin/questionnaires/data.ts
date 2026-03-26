@@ -60,59 +60,19 @@ function mapQuestionOptionList(raw: unknown) {
 
 export async function getQuestionnairePublishingGate() {
   const admin = createAdminSupabaseClient();
-  const [openBatchResult, batchCountResult, currentBatchResult] = await Promise.all([
-    admin
-      .from("match_batches")
-      .select("id", { head: true, count: "exact" })
-      .eq("status", "open"),
-    admin.from("match_batches").select("id", { head: true, count: "exact" }),
-    admin
-      .from("match_batches")
-      .select("id, result_publish_at, status")
-      .in("status", ["open", "locked", "processing", "failed", "published"])
-      .order("signup_end_at", { ascending: false })
-      .limit(10),
-  ]);
+  const openBatchResult = await admin
+    .from("match_batches")
+    .select("id", { head: true, count: "exact" })
+    .eq("status", "open");
 
   if (openBatchResult.error) {
     throw openBatchResult.error;
-  }
-
-  if (batchCountResult.error) {
-    throw batchCountResult.error;
-  }
-
-  if (currentBatchResult.error) {
-    throw currentBatchResult.error;
   }
 
   if ((openBatchResult.count ?? 0) > 0) {
     return {
       canManage: false,
       reason: "当前存在 open 批次，不能导入或发布新问卷。",
-    } satisfies QuestionnairePublishingGate;
-  }
-
-  if ((batchCountResult.count ?? 0) === 0) {
-    return {
-      canManage: true,
-      reason: null,
-    } satisfies QuestionnairePublishingGate;
-  }
-
-  const nowIso = new Date().toISOString();
-  const currentBatch = (currentBatchResult.data ?? []).find(
-    (batch) =>
-      batch.status === "locked" ||
-      batch.status === "processing" ||
-      batch.status === "failed" ||
-      (batch.status === "published" && batch.result_publish_at > nowIso),
-  );
-
-  if (!currentBatch || currentBatch.result_publish_at <= nowIso) {
-    return {
-      canManage: false,
-      reason: "仅允许在当前轮报名截止后到结果公布前导入或发布新问卷。",
     } satisfies QuestionnairePublishingGate;
   }
 
@@ -162,7 +122,7 @@ export async function getQuestionnaireVersionDetail(versionId: string) {
     admin
       .from("questionnaire_questions")
       .select(
-        "id, section_id, question_code, kind, prompt, helper_text, placeholder, is_required, options_json, scale_min, scale_max, scale_left_label, scale_right_label, sort_order, weight",
+        "id, section_id, question_code, kind, prompt, helper_text, placeholder, is_required, options_json, scale_min, scale_max, scale_left_label, scale_middle_label, scale_right_label, sort_order, weight",
       )
       .eq("questionnaire_version_id", versionId)
       .order("sort_order", { ascending: true }),
@@ -209,6 +169,7 @@ export async function getQuestionnaireVersionDetail(versionId: string) {
         scaleMin: question.scale_min,
         scaleMax: question.scale_max,
         scaleLeftLabel: question.scale_left_label,
+        scaleMiddleLabel: question.scale_middle_label,
         scaleRightLabel: question.scale_right_label,
         sortOrder: question.sort_order,
         weight: question.weight,

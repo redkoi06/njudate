@@ -88,6 +88,7 @@ function redirectWithMessage(
   pathname: string,
   params: Record<string, string | null>,
 ): never {
+  const [basePathname, hash = ""] = pathname.split("#", 2);
   const searchParams = new URLSearchParams();
 
   Object.entries(params).forEach(([key, value]) => {
@@ -96,8 +97,12 @@ function redirectWithMessage(
     }
   });
 
+  const hashSuffix = hash ? `#${hash}` : "";
+
   redirect(
-    searchParams.size > 0 ? `${pathname}?${searchParams.toString()}` : pathname,
+    searchParams.size > 0
+      ? `${basePathname}?${searchParams.toString()}${hashSuffix}`
+      : `${basePathname}${hashSuffix}`,
   );
 }
 
@@ -191,7 +196,7 @@ export async function createBatchAction(formData: FormData) {
       await ensureNoCurrentBatch();
       return parsed;
     } catch (error) {
-      return redirectWithMessage("/admin/batches", {
+      return redirectWithMessage("/admin/batches#create-batch-feedback", {
         error: error instanceof Error ? error.message : "批次创建失败。",
       });
     }

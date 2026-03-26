@@ -85,6 +85,56 @@ describe("questionnaireImportSchema", () => {
     expect(parsed.sections[0]?.questions[1]?.weight).toBe(1.5);
   });
 
+  it("accepts optional scaleMiddleLabel on scale questions", () => {
+    const definition = createValidDefinition();
+    const scaleQuestion = definition.sections[0]?.questions[1];
+
+    if (!scaleQuestion || scaleQuestion.kind !== "scale") {
+      throw new Error("Expected a scale question fixture.");
+    }
+
+    Object.assign(scaleQuestion, {
+      scaleMiddleLabel: "居中一些",
+    });
+
+    const parsed = parseQuestionnaireImportJson(JSON.stringify(definition));
+    const parsedScaleQuestion = parsed.sections[0]?.questions[1];
+
+    expect(parsedScaleQuestion?.kind).toBe("scale");
+    if (!parsedScaleQuestion || parsedScaleQuestion.kind !== "scale") {
+      throw new Error("Expected parsed scale question.");
+    }
+
+    expect(parsedScaleQuestion.scaleMiddleLabel).toBe("居中一些");
+  });
+
+  it("keeps scaleMiddleLabel optional on scale questions", () => {
+    const parsed = parseQuestionnaireImportJson(
+      JSON.stringify(createValidDefinition()),
+    );
+    const parsedScaleQuestion = parsed.sections[0]?.questions[1];
+
+    expect(parsedScaleQuestion?.kind).toBe("scale");
+    if (!parsedScaleQuestion || parsedScaleQuestion.kind !== "scale") {
+      throw new Error("Expected parsed scale question.");
+    }
+
+    expect(parsedScaleQuestion.scaleMiddleLabel).toBeNull();
+  });
+
+  it("strips scaleMiddleLabel from non-scale questions", () => {
+    const definition = createValidDefinition();
+    Object.assign(definition.sections[0]?.questions[0] ?? {}, {
+      scaleMiddleLabel: "ignored",
+    });
+
+    const parsed = parseQuestionnaireImportJson(JSON.stringify(definition));
+
+    expect(parsed.sections[0]?.questions[0]).not.toHaveProperty(
+      "scaleMiddleLabel",
+    );
+  });
+
   it("rejects unsupported text questions", () => {
     const definition = createValidDefinition();
     definition.sections[0]?.questions.push({

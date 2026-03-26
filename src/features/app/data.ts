@@ -35,6 +35,7 @@ export type QuestionnaireQuestion = {
   scaleMin: number | null;
   scaleMax: number | null;
   scaleLeftLabel: string | null;
+  scaleMiddleLabel: string | null;
   scaleRightLabel: string | null;
   sortOrder: number;
   weight: number;
@@ -314,7 +315,7 @@ export async function getQuestionnaireState(userId: string) {
       supabase
         .from("questionnaire_questions")
         .select(
-          "id, section_id, question_code, kind, prompt, helper_text, placeholder, is_required, options_json, scale_min, scale_max, scale_left_label, scale_right_label, sort_order, weight",
+          "id, section_id, question_code, kind, prompt, helper_text, placeholder, is_required, options_json, scale_min, scale_max, scale_left_label, scale_middle_label, scale_right_label, sort_order, weight",
         )
         .eq("questionnaire_version_id", context.versionId)
         .order("sort_order", { ascending: true }),
@@ -359,6 +360,7 @@ export async function getQuestionnaireState(userId: string) {
         scaleMin: question.scale_min,
         scaleMax: question.scale_max,
         scaleLeftLabel: question.scale_left_label,
+        scaleMiddleLabel: question.scale_middle_label,
         scaleRightLabel: question.scale_right_label,
         sortOrder: question.sort_order,
         weight: question.weight,

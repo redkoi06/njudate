@@ -6,6 +6,43 @@ type QuestionnaireSectionsProps = {
   sections: QuestionnaireSection[];
 };
 
+function getScaleValues(question: QuestionnaireSection["questions"][number]) {
+  const min = question.scaleMin ?? 1;
+  const max = question.scaleMax ?? 5;
+
+  return Array.from({ length: max - min + 1 }, (_, index) => min + index);
+}
+
+function getScaleMiddleAnchor(
+  question: QuestionnaireSection["questions"][number],
+) {
+  if (question.kind !== "scale" || !question.scaleMiddleLabel) {
+    return null;
+  }
+
+  const min = question.scaleMin ?? 1;
+  const max = question.scaleMax ?? 5;
+
+  if ((min + max) % 2 !== 0) {
+    return null;
+  }
+
+  return {
+    label: question.scaleMiddleLabel,
+    value: (min + max) / 2,
+  };
+}
+
+function formatScaleAnchor(value: number, label: string | null) {
+  return label ? `${value} (${label})` : String(value);
+}
+
+function getScaleOptionGridStyle() {
+  return {
+    gridTemplateColumns: "repeat(auto-fit, minmax(4.75rem, 1fr))",
+  };
+}
+
 export function QuestionnaireSections({
   answers,
   disabled = false,
@@ -95,21 +132,60 @@ export function QuestionnaireSections({
 
                 {question.kind === "scale" ? (
                   <div className="grid gap-3">
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>{question.scaleLeftLabel}</span>
-                      <span>{question.scaleRightLabel}</span>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {Array.from(
-                        {
-                          length:
-                            (question.scaleMax ?? 5) - (question.scaleMin ?? 1) + 1,
-                        },
-                        (_, index) => (question.scaleMin ?? 1) + index,
-                      ).map((value) => (
+                    {(() => {
+                      const middleAnchor = getScaleMiddleAnchor(question);
+
+                      if (!middleAnchor) {
+                        return (
+                          <div className="flex items-center justify-between text-xs text-muted-foreground">
+                            <span>
+                              {formatScaleAnchor(
+                                question.scaleMin ?? 1,
+                                question.scaleLeftLabel,
+                              )}
+                            </span>
+                            <span>
+                              {formatScaleAnchor(
+                                question.scaleMax ?? 5,
+                                question.scaleRightLabel,
+                              )}
+                            </span>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="grid grid-cols-3 gap-3 text-xs text-muted-foreground">
+                          <span>
+                            {formatScaleAnchor(
+                              question.scaleMin ?? 1,
+                              question.scaleLeftLabel,
+                            )}
+                          </span>
+                          <span className="text-center">
+                            {formatScaleAnchor(
+                              middleAnchor.value,
+                              middleAnchor.label,
+                            )}
+                          </span>
+                          <span className="text-right">
+                            {formatScaleAnchor(
+                              question.scaleMax ?? 5,
+                              question.scaleRightLabel,
+                            )}
+                          </span>
+                        </div>
+                      );
+                    })()}
+                    <div
+                      className="grid w-full gap-2 sm:gap-3"
+                      data-testid={`scale-options-${question.questionCode}`}
+                      style={getScaleOptionGridStyle()}
+                    >
+                      {getScaleValues(question).map((value) => (
                         <label
                           key={value}
-                          className="border-border flex min-w-12 items-center justify-center rounded-full border px-4 py-3 text-sm"
+                          className="border-border flex w-full min-w-0 items-center justify-center rounded-full border px-4 py-3 text-sm"
                         >
                           <input
                             type="radio"
