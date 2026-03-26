@@ -49,9 +49,8 @@ vi.mock("@/lib/auth/registration", () => ({
 import { registerUserAction } from "@/features/app/actions";
 
 type MockAuthUser = {
-  email?: string | null;
   email_confirmed_at?: string | null;
-  id?: string;
+  user_id?: string;
 };
 
 function createRegisterFormData(email: string) {
@@ -76,7 +75,7 @@ async function captureRedirectUrl(formData: FormData) {
 
 describe("registerUserAction", () => {
   const email = "student@smail.nju.edu.cn";
-  const listUsersMock = vi.fn();
+  const authLookupRpcMock = vi.fn();
   const signUpMock = vi.fn();
   const resendMock = vi.fn();
   const maybeSingleMock = vi.fn();
@@ -89,7 +88,7 @@ describe("registerUserAction", () => {
     createServerSupabaseClientMock.mockReset();
     createAdminSupabaseClientMock.mockReset();
     getRegistrationOpenMock.mockReset();
-    listUsersMock.mockReset();
+    authLookupRpcMock.mockReset();
     signUpMock.mockReset();
     resendMock.mockReset();
     maybeSingleMock.mockReset();
@@ -114,11 +113,7 @@ describe("registerUserAction", () => {
     });
 
     createAdminSupabaseClientMock.mockReturnValue({
-      auth: {
-        admin: {
-          listUsers: listUsersMock,
-        },
-      },
+      rpc: authLookupRpcMock,
       from: fromMock,
     });
 
@@ -131,8 +126,8 @@ describe("registerUserAction", () => {
   });
 
   it("redirects to sent state for an unregistered email", async () => {
-    listUsersMock.mockResolvedValue({
-      data: { users: [] },
+    authLookupRpcMock.mockResolvedValue({
+      data: [],
       error: null,
     });
     signUpMock.mockResolvedValue({ error: null });
@@ -151,7 +146,7 @@ describe("registerUserAction", () => {
     const redirectUrl = await captureRedirectUrl(createRegisterFormData(email));
 
     expect(redirectUrl).toBe("/login");
-    expect(listUsersMock).not.toHaveBeenCalled();
+    expect(authLookupRpcMock).not.toHaveBeenCalled();
     expect(signUpMock).not.toHaveBeenCalled();
     expect(resendMock).not.toHaveBeenCalled();
   });
@@ -163,7 +158,7 @@ describe("registerUserAction", () => {
 
     expect(getQueryParam(redirectUrl, "email")).toBe("admin@njudate.cn");
     expect(getQueryParam(redirectUrl, "error")).toBe("请使用南大邮箱注册");
-    expect(listUsersMock).not.toHaveBeenCalled();
+    expect(authLookupRpcMock).not.toHaveBeenCalled();
     expect(signUpMock).not.toHaveBeenCalled();
     expect(resendMock).not.toHaveBeenCalled();
   });
@@ -171,13 +166,12 @@ describe("registerUserAction", () => {
   it("shows registered message for a confirmed existing email", async () => {
     const users: MockAuthUser[] = [
       {
-        email,
         email_confirmed_at: "2026-03-22T12:00:00Z",
-        id: "user-1",
+        user_id: "user-1",
       },
     ];
-    listUsersMock.mockResolvedValue({
-      data: { users },
+    authLookupRpcMock.mockResolvedValue({
+      data: users,
       error: null,
     });
 
@@ -192,13 +186,12 @@ describe("registerUserAction", () => {
   it("resends confirmation mail for an unconfirmed existing email", async () => {
     const users: MockAuthUser[] = [
       {
-        email,
         email_confirmed_at: null,
-        id: "user-1",
+        user_id: "user-1",
       },
     ];
-    listUsersMock.mockResolvedValue({
-      data: { users },
+    authLookupRpcMock.mockResolvedValue({
+      data: users,
       error: null,
     });
     resendMock.mockResolvedValue({ error: null });
@@ -222,13 +215,12 @@ describe("registerUserAction", () => {
   it("shows resend failure message when resend request fails", async () => {
     const users: MockAuthUser[] = [
       {
-        email,
         email_confirmed_at: null,
-        id: "user-1",
+        user_id: "user-1",
       },
     ];
-    listUsersMock.mockResolvedValue({
-      data: { users },
+    authLookupRpcMock.mockResolvedValue({
+      data: users,
       error: null,
     });
     resendMock.mockResolvedValue({

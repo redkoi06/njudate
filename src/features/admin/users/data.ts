@@ -60,9 +60,14 @@ type ParticipationRow = {
   user_id: string;
 };
 
+type AuthUserLookupRow = {
+  banned_until: string | null;
+  email: string | null;
+  user_id: string;
+};
+
 const ADMIN_USER_COLUMNS =
   "id, role, account_status, nickname, gender, grade, department, campus, birth_year, deleted_at, created_at";
-const AUTH_USER_SEARCH_PAGE_SIZE = 500;
 
 export function getRecentParticipationStatusLabel(
   status: AdminUserListItem["recentParticipationStatus"],
@@ -89,28 +94,16 @@ async function findAuthUserIdsByKeyword(
     return [];
   }
 
-  const matchedUserIds = new Set<string>();
+  const { data, error } = await admin.rpc(
+    "find_auth_user_ids_by_email_keyword" as never,
+    { p_keyword: normalizedKeyword } as never,
+  );
 
-  for (let page = 1; ; page += 1) {
-    const { data, error } = await admin.auth.admin.listUsers({
-      page,
-      perPage: AUTH_USER_SEARCH_PAGE_SIZE,
-    });
-
-    if (error) {
-      throw error;
-    }
-
-    for (const user of data.users) {
-      if (user.email?.toLowerCase().includes(normalizedKeyword)) {
-        matchedUserIds.add(user.id);
-      }
-    }
-
-    if (data.users.length < AUTH_USER_SEARCH_PAGE_SIZE) {
-      return [...matchedUserIds];
-    }
+  if (error) {
+    throw error;
   }
+
+  return ((data ?? []) as Array<{ user_id: string }>).map((row) => row.user_id);
 }
 
 export async function listAdminUsers(
@@ -128,7 +121,9 @@ export async function listAdminUsers(
   const keyword = input?.keyword?.trim() ?? "";
   let users: AppUserRow[] = [];
   let total = 0;
-  let questionnaireContext: Awaited<ReturnType<typeof getEffectiveQuestionnaireContext>>;
+  let questionnaireContext: Awaited<
+    ReturnType<typeof getEffectiveQuestionnaireContext>
+  >;
 
   if (keyword) {
     const [matchedAuthUserIds, nicknameResult, resolvedQuestionnaireContext] =
@@ -167,15 +162,16 @@ export async function listAdminUsers(
       users = (usersResult.data ?? []) as AppUserRow[];
     }
   } else {
-    const [usersResult, countResult, resolvedQuestionnaireContext] = await Promise.all([
-      admin
-        .from("app_users")
-        .select(ADMIN_USER_COLUMNS)
-        .order("created_at", { ascending: false })
-        .range(rangeFrom, rangeTo),
-      admin.from("app_users").select("id", { head: true, count: "exact" }),
-      getEffectiveQuestionnaireContext(admin),
-    ]);
+    const [usersResult, countResult, resolvedQuestionnaireContext] =
+      await Promise.all([
+        admin
+          .from("app_users")
+          .select(ADMIN_USER_COLUMNS)
+          .order("created_at", { ascending: false })
+          .range(rangeFrom, rangeTo),
+        admin.from("app_users").select("id", { head: true, count: "exact" }),
+        getEffectiveQuestionnaireContext(admin),
+      ]);
 
     if (usersResult.error) {
       throw usersResult.error;
@@ -219,14 +215,17 @@ export async function listAdminUsers(
   }
 
   const latestParticipationByUserId = new Map<string, ParticipationRow>();
-  for (const participation of (participationResult.data ?? []) as ParticipationRow[]) {
+  for (const participation of (participationResult.data ??
+    []) as ParticipationRow[]) {
     if (!latestParticipationByUserId.has(participation.user_id)) {
       latestParticipationByUserId.set(participation.user_id, participation);
     }
   }
 
   const batchIds = [
-    ...new Set([...latestParticipationByUserId.values()].map((item) => item.batch_id)),
+    ...new Set(
+      [...latestParticipationByUserId.values()].map((item) => item.batch_id),
+    ),
   ];
   const { data: batches, error: batchesError } = batchIds.length
     ? await admin.from("match_batches").select("id, label").in("id", batchIds)
@@ -236,7 +235,9 @@ export async function listAdminUsers(
     throw batchesError;
   }
 
-  const batchLabelById = new Map((batches ?? []).map((item) => [item.id, item.label]));
+  const batchLabelById = new Map(
+    (batches ?? []).map((item) => [item.id, item.label]),
+  );
 
   const submissionsByUserId = new Map<
     string,
@@ -260,19 +261,25 @@ export async function listAdminUsers(
     submissionsByUserId.set(submission.user_id, current);
   }
 
-  const authUsers = await Promise.all(
-    users.map(async (user) => {
-      const { data, error } = await admin.auth.admin.getUserById(user.id);
+  const { data: authUsersData, error: authUsersError } = userIds.length
+    ? await admin.rpc(
+        "get_auth_users_by_ids" as never,
+        {
+          p_user_ids: userIds,
+        } as never,
+      )
+    : { data: [], error: null };
 
-      if (error) {
-        throw error;
-      }
+  if (authUsersError) {
+    throw authUsersError;
+  }
 
-      return [user.id, data.user ?? null] as const;
-    }),
+  const authUserById = new Map(
+    ((authUsersData ?? []) as AuthUserLookupRow[]).map((row) => [
+      row.user_id,
+      row,
+    ]),
   );
-
-  const authUserById = new Map(authUsers);
 
   return {
     effectiveQuestionnaireVersionNo: questionnaireContext?.versionNo ?? null,
@@ -285,7 +292,8 @@ export async function listAdminUsers(
             },
           )
         : null;
-      const latestParticipation = latestParticipationByUserId.get(user.id) ?? null;
+      const latestParticipation =
+        latestParticipationByUserId.get(user.id) ?? null;
       const authUser = authUserById.get(user.id) ?? null;
       const bannedUntil = authUser?.banned_until ?? null;
       const isAuthBanned =
@@ -318,7 +326,7 @@ export async function listAdminUsers(
           ? getQuestionnaireSubmissionStatusLabel(questionnaireStatus)
           : "暂无生效问卷",
         recentParticipationBatchLabel: latestParticipation
-          ? batchLabelById.get(latestParticipation.batch_id) ?? null
+          ? (batchLabelById.get(latestParticipation.batch_id) ?? null)
           : null,
         recentParticipationStatus: latestParticipation?.status ?? null,
         role: user.role,

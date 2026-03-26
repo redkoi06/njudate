@@ -303,7 +303,9 @@ function isInvalidLoginCredentialsError(error: unknown) {
   );
 }
 
-async function getAuthRegistrationStatus(email: string): Promise<AuthRegistrationStatus> {
+async function getAuthRegistrationStatus(
+  email: string,
+): Promise<AuthRegistrationStatus> {
   const lookup = await getAuthUserLookup(email);
   return lookup.registrationStatus;
 }
@@ -315,49 +317,47 @@ async function getAuthUserLookup(email: string): Promise<{
 }> {
   const admin = createAdminSupabaseClient();
   const normalizedEmail = email.trim().toLowerCase();
-  const perPage = 500;
-  const maxPages = 20;
+  const { data: authRows, error: authError } = await admin.rpc(
+    "lookup_auth_user_by_email" as never,
+    { p_email: normalizedEmail } as never,
+  );
 
-  for (let page = 1; page <= maxPages; page += 1) {
-    const { data, error } = await admin.auth.admin.listUsers({ page, perPage });
-    if (error) {
-      throw error;
-    }
-
-    const matched = data.users.find(
-      (user) => user.email?.toLowerCase() === normalizedEmail,
-    );
-
-    if (matched) {
-      const { data: appUser, error: appUserError } = await admin
-        .from("app_users")
-        .select("account_status")
-        .eq("id", matched.id)
-        .maybeSingle();
-
-      if (appUserError) {
-        throw appUserError;
-      }
-
-      return {
-        accountStatus: (appUser?.account_status ?? null) as AppAccountStatus | null,
-        registrationStatus: matched.email_confirmed_at
-          ? "registered_confirmed"
-          : "registered_unconfirmed",
-        userId: matched.id ?? null,
-      };
-    }
-
-    if (data.users.length < perPage) {
-      return {
-        accountStatus: null,
-        registrationStatus: "not_found",
-        userId: null,
-      };
-    }
+  if (authError) {
+    throw authError;
   }
 
-  throw new Error("无法确认邮箱注册状态");
+  const authRow = (
+    (authRows ?? []) as Array<{
+      email_confirmed_at: string | null;
+      user_id: string;
+    }>
+  )[0];
+
+  if (!authRow) {
+    return {
+      accountStatus: null,
+      registrationStatus: "not_found",
+      userId: null,
+    };
+  }
+
+  const { data: appUser, error: appUserError } = await admin
+    .from("app_users")
+    .select("account_status")
+    .eq("id", authRow.user_id)
+    .maybeSingle();
+
+  if (appUserError) {
+    throw appUserError;
+  }
+
+  return {
+    accountStatus: (appUser?.account_status ?? null) as AppAccountStatus | null,
+    registrationStatus: authRow.email_confirmed_at
+      ? "registered_confirmed"
+      : "registered_unconfirmed",
+    userId: authRow.user_id,
+  };
 }
 
 function getActionErrorMessage(error: unknown, fallback: string) {
@@ -419,7 +419,9 @@ export async function registerUserAction(formData: FormData) {
     "/auth/confirm",
     env.NEXT_PUBLIC_SITE_URL,
   ).toString();
-  const registrationStatus = await getAuthRegistrationStatus(payload.data.email);
+  const registrationStatus = await getAuthRegistrationStatus(
+    payload.data.email,
+  );
 
   if (registrationStatus === "registered_confirmed") {
     return redirectWithSearchParams("/register", {
@@ -689,10 +691,13 @@ export async function deleteOwnAccountAction() {
   });
 
   if (banError) {
-    const { error: rollbackError } = await admin.rpc("rollback_delete_my_account", {
-      p_user_id: deleteResult.userId,
-      p_cancelled_participation_ids: deleteResult.cancelledParticipationIds,
-    });
+    const { error: rollbackError } = await admin.rpc(
+      "rollback_delete_my_account",
+      {
+        p_user_id: deleteResult.userId,
+        p_cancelled_participation_ids: deleteResult.cancelledParticipationIds,
+      },
+    );
 
     if (rollbackError) {
       await writeAccountOperationLog({

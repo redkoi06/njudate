@@ -93,7 +93,6 @@ async function captureRedirect(action: Promise<unknown>) {
 describe("account actions", () => {
   const deleteActionUserId = "11111111-1111-4111-8111-111111111111";
   const cancelledParticipationId = "22222222-2222-4222-8222-222222222222";
-  const listUsersMock = vi.fn();
   const signInWithPasswordMock = vi.fn();
   const signOutMock = vi.fn();
   const getUserMock = vi.fn();
@@ -112,7 +111,6 @@ describe("account actions", () => {
     createServerSupabaseClientMock.mockReset();
     createAdminSupabaseClientMock.mockReset();
     getRegistrationOpenMock.mockReset();
-    listUsersMock.mockReset();
     signInWithPasswordMock.mockReset();
     signOutMock.mockReset();
     getUserMock.mockReset();
@@ -132,6 +130,19 @@ describe("account actions", () => {
     });
 
     getRegistrationOpenMock.mockResolvedValue(true);
+    adminRpcMock.mockImplementation(async (fn: string) => {
+      if (fn === "lookup_auth_user_by_email") {
+        return {
+          data: [],
+          error: null,
+        };
+      }
+
+      return {
+        data: null,
+        error: null,
+      };
+    });
 
     createServerSupabaseClientMock.mockResolvedValue({
       auth: {
@@ -152,7 +163,6 @@ describe("account actions", () => {
     createAdminSupabaseClientMock.mockReturnValue({
       auth: {
         admin: {
-          listUsers: listUsersMock,
           updateUserById: updateUserByIdMock,
         },
       },
@@ -182,30 +192,31 @@ describe("account actions", () => {
     formData.set("email", "deleted@smail.nju.edu.cn");
     formData.set("password", "secret1");
 
-    listUsersMock.mockResolvedValue({
-      data: {
-        users: [
-          {
-            email: "deleted@smail.nju.edu.cn",
-            email_confirmed_at: "2026-03-22T12:00:00Z",
-            id: "user-1",
-          },
-        ],
-      },
+    adminRpcMock.mockResolvedValue({
+      data: [
+        {
+          email_confirmed_at: "2026-03-22T12:00:00Z",
+          user_id: "user-1",
+        },
+      ],
       error: null,
     });
 
     createAdminSupabaseClientMock.mockReturnValue({
       auth: {
         admin: {
-          listUsers: listUsersMock,
           updateUserById: updateUserByIdMock,
         },
       },
-      from: vi.fn(() => createAppUsersTableBuilder({ account_status: "deleted" }).builder),
+      rpc: adminRpcMock,
+      from: vi.fn(
+        () => createAppUsersTableBuilder({ account_status: "deleted" }).builder,
+      ),
     });
 
-    const redirectUrl = await captureRedirect(signInWithPasswordAction(formData));
+    const redirectUrl = await captureRedirect(
+      signInWithPasswordAction(formData),
+    );
 
     expect(getQueryParam(redirectUrl, "error")).toBe("账号已删除，无法登录。");
     expect(signInWithPasswordMock).not.toHaveBeenCalled();
@@ -216,10 +227,8 @@ describe("account actions", () => {
     formData.set("email", "admin@njudate.cn");
     formData.set("password", "secret1");
 
-    listUsersMock.mockResolvedValue({
-      data: {
-        users: [],
-      },
+    adminRpcMock.mockResolvedValue({
+      data: [],
       error: null,
     });
     signInWithPasswordMock.mockResolvedValue({
@@ -231,7 +240,9 @@ describe("account actions", () => {
       error: null,
     });
 
-    const redirectUrl = await captureRedirect(signInWithPasswordAction(formData));
+    const redirectUrl = await captureRedirect(
+      signInWithPasswordAction(formData),
+    );
 
     expect(signInWithPasswordMock).toHaveBeenCalledWith({
       email: "admin@njudate.cn",
@@ -407,7 +418,9 @@ describe("account actions", () => {
     const formData = new FormData();
     formData.set("notificationId", "notification-1");
 
-    const redirectUrl = await captureRedirect(markNotificationReadAction(formData));
+    const redirectUrl = await captureRedirect(
+      markNotificationReadAction(formData),
+    );
 
     expect(rpcMock).toHaveBeenCalledWith("mark_notification_read", {
       p_notification_id: "notification-1",

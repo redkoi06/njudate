@@ -1,16 +1,22 @@
 import type { User } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
+import { cache } from "react";
 
-import { getDefaultHomePathForRole, type AppRole } from "@/lib/auth/permissions";
+import {
+  getDefaultHomePathForRole,
+  type AppRole,
+} from "@/lib/auth/permissions";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 const DELETED_ACCOUNT_SESSION_ERROR_MESSAGE = "账号已删除，请重新登录。";
 
 function redirectDeletedAccount(): never {
-  redirect(`/login?error=${encodeURIComponent(DELETED_ACCOUNT_SESSION_ERROR_MESSAGE)}`);
+  redirect(
+    `/login?error=${encodeURIComponent(DELETED_ACCOUNT_SESSION_ERROR_MESSAGE)}`,
+  );
 }
 
-async function getSessionAppUserRecord(userId: string) {
+const getSessionAppUserRecord = cache(async (userId: string) => {
   const supabase = await createServerSupabaseClient();
   const { data, error } = await supabase
     .from("app_users")
@@ -23,16 +29,16 @@ async function getSessionAppUserRecord(userId: string) {
   }
 
   return { appUser: data, supabase };
-}
+});
 
-export async function getSessionUser() {
+export const getSessionUser = cache(async () => {
   const supabase = await createServerSupabaseClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   return user;
-}
+});
 
 export async function getOptionalSessionUser() {
   if (
@@ -66,9 +72,13 @@ export async function requireSessionUser() {
   return user;
 }
 
-export async function getCurrentAppRole(userId?: string): Promise<AppRole | null> {
+export async function getCurrentAppRole(
+  userId?: string,
+): Promise<AppRole | null> {
   const resolvedUser =
-    userId === undefined ? await getSessionUser() : ({ id: userId } as Pick<User, "id">);
+    userId === undefined
+      ? await getSessionUser()
+      : ({ id: userId } as Pick<User, "id">);
 
   if (!resolvedUser) {
     return null;

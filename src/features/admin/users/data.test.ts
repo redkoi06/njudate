@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
+  adminRpcMock,
   createAdminSupabaseClientMock,
   getEffectiveQuestionnaireContextMock,
-  listUsersMock,
 } = vi.hoisted(() => ({
+  adminRpcMock: vi.fn(),
   createAdminSupabaseClientMock: vi.fn(),
   getEffectiveQuestionnaireContextMock: vi.fn(),
-  listUsersMock: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
@@ -17,9 +17,9 @@ vi.mock("@/lib/supabase/admin", () => ({
 }));
 
 vi.mock("@/features/app/questionnaire-runtime", async () => {
-  const actual = await vi.importActual<typeof import("@/features/app/questionnaire-runtime")>(
-    "@/features/app/questionnaire-runtime",
-  );
+  const actual = await vi.importActual<
+    typeof import("@/features/app/questionnaire-runtime")
+  >("@/features/app/questionnaire-runtime");
 
   return {
     ...actual,
@@ -31,9 +31,9 @@ import { listAdminUsers } from "@/features/admin/users/data";
 
 describe("listAdminUsers", () => {
   beforeEach(() => {
+    adminRpcMock.mockReset();
     createAdminSupabaseClientMock.mockReset();
     getEffectiveQuestionnaireContextMock.mockReset();
-    listUsersMock.mockReset();
   });
 
   it("maps profile, questionnaire, participation and auth-ban status for the admin list", async () => {
@@ -52,84 +52,85 @@ describe("listAdminUsers", () => {
       windowStatus: "open",
     });
 
-    const getUserByIdMock = vi.fn(async (userId: string) => {
-      if (userId === "user-1") {
+    adminRpcMock.mockImplementation(async (fn: string) => {
+      if (fn === "get_auth_users_by_ids") {
         return {
-          data: {
-            user: {
+          data: [
+            {
+              user_id: "user-1",
               email: "user1@smail.nju.edu.cn",
               banned_until: "2099-01-01T00:00:00.000Z",
             },
-          },
+            {
+              user_id: "user-2",
+              email: "user2@smail.nju.edu.cn",
+              banned_until: null,
+            },
+          ],
           error: null,
         };
       }
 
       return {
-        data: {
-          user: {
-            email: "user2@smail.nju.edu.cn",
-            banned_until: null,
-          },
-        },
+        data: [],
         error: null,
       };
     });
 
     createAdminSupabaseClientMock.mockReturnValue({
-      auth: {
-        admin: {
-          getUserById: getUserByIdMock,
-          listUsers: listUsersMock,
-        },
-      },
+      rpc: adminRpcMock,
       from: vi.fn((table: string) => {
         if (table === "app_users") {
           return {
-            select: vi.fn((columns: string, options?: { count?: "exact"; head?: boolean }) => {
-              if (options?.head) {
-                return Promise.resolve({
-                  count: 2,
-                  error: null,
-                });
-              }
-
-              return {
-                order: vi.fn(() => ({
-                  range: vi.fn(async () => ({
-                    data: [
-                      {
-                        id: "user-1",
-                        role: "user",
-                        account_status: "active",
-                        nickname: "阿南",
-                        gender: "男",
-                        grade: "大三",
-                        department: "计算机学院",
-                        campus: "仙林校区",
-                        birth_year: 2002,
-                        deleted_at: null,
-                        created_at: "2026-03-01T12:00:00.000Z",
-                      },
-                      {
-                        id: "user-2",
-                        role: "user",
-                        account_status: "deleted",
-                        nickname: null,
-                        gender: null,
-                        grade: null,
-                        department: null,
-                        campus: null,
-                        birth_year: null,
-                        deleted_at: "2026-03-20T12:00:00.000Z",
-                        created_at: "2026-02-01T12:00:00.000Z",
-                      },
-                    ],
+            select: vi.fn(
+              (
+                columns: string,
+                options?: { count?: "exact"; head?: boolean },
+              ) => {
+                if (options?.head) {
+                  return Promise.resolve({
+                    count: 2,
                     error: null,
+                  });
+                }
+
+                return {
+                  order: vi.fn(() => ({
+                    range: vi.fn(async () => ({
+                      data: [
+                        {
+                          id: "user-1",
+                          role: "user",
+                          account_status: "active",
+                          nickname: "阿南",
+                          gender: "男",
+                          grade: "大三",
+                          department: "计算机学院",
+                          campus: "仙林校区",
+                          birth_year: 2002,
+                          deleted_at: null,
+                          created_at: "2026-03-01T12:00:00.000Z",
+                        },
+                        {
+                          id: "user-2",
+                          role: "user",
+                          account_status: "deleted",
+                          nickname: null,
+                          gender: null,
+                          grade: null,
+                          department: null,
+                          campus: null,
+                          birth_year: null,
+                          deleted_at: "2026-03-20T12:00:00.000Z",
+                          created_at: "2026-02-01T12:00:00.000Z",
+                        },
+                      ],
+                      error: null,
+                    })),
                   })),
-                })),
-              };
-            }),
+                };
+              },
+            ),
           };
         }
 
@@ -140,7 +141,11 @@ describe("listAdminUsers", () => {
                 in: vi.fn(() => ({
                   order: vi.fn(async () => ({
                     data: [
-                      { user_id: "user-1", status: "submitted", submission_no: 2 },
+                      {
+                        user_id: "user-1",
+                        status: "submitted",
+                        submission_no: 2,
+                      },
                       { user_id: "user-2", status: "draft", submission_no: 1 },
                     ],
                     error: null,
@@ -234,96 +239,109 @@ describe("listAdminUsers", () => {
       windowStatus: "open",
     });
 
-    listUsersMock.mockResolvedValue({
-      data: {
-        users: [
-          {
-            id: "user-1",
-            email: "hongli@njudate.cn",
-          },
-        ],
-      },
-      error: null,
-    });
+    adminRpcMock.mockImplementation(
+      async (
+        fn: string,
+        args?: { p_keyword?: string; p_user_ids?: string[] },
+      ) => {
+        if (fn === "find_auth_user_ids_by_email_keyword") {
+          expect(args?.p_keyword).toBe("hong");
+          return {
+            data: [{ user_id: "user-1" }],
+            error: null,
+          };
+        }
 
-    const getUserByIdMock = vi.fn(async (userId: string) => ({
-      data: {
-        user: {
-          email:
-            userId === "user-1"
-              ? "hongli@njudate.cn"
-              : "guest@smail.nju.edu.cn",
-          banned_until: null,
-        },
+        if (fn === "get_auth_users_by_ids") {
+          return {
+            data: [
+              {
+                user_id: "user-1",
+                email: "hongli@njudate.cn",
+                banned_until: null,
+              },
+              {
+                user_id: "user-2",
+                email: "guest@smail.nju.edu.cn",
+                banned_until: null,
+              },
+            ],
+            error: null,
+          };
+        }
+
+        return {
+          data: [],
+          error: null,
+        };
       },
-      error: null,
-    }));
+    );
 
     createAdminSupabaseClientMock.mockReturnValue({
-      auth: {
-        admin: {
-          getUserById: getUserByIdMock,
-          listUsers: listUsersMock,
-        },
-      },
+      rpc: adminRpcMock,
       from: vi.fn((table: string) => {
         if (table === "app_users") {
           return {
-            select: vi.fn((columns: string, options?: { count?: "exact"; head?: boolean }) => {
-              if (options?.head) {
-                return Promise.resolve({
-                  count: 2,
-                  error: null,
-                });
-              }
-
-              if (columns === "id") {
-                return {
-                  ilike: vi.fn(async () => ({
-                    data: [{ id: "user-2" }],
+            select: vi.fn(
+              (
+                columns: string,
+                options?: { count?: "exact"; head?: boolean },
+              ) => {
+                if (options?.head) {
+                  return Promise.resolve({
+                    count: 2,
                     error: null,
-                  })),
-                };
-              }
+                  });
+                }
 
-              return {
-                in: vi.fn(() => ({
-                  order: vi.fn(() => ({
-                    range: vi.fn(async () => ({
-                      data: [
-                        {
-                          id: "user-1",
-                          role: "admin",
-                          account_status: "active",
-                          nickname: "运营 Hong",
-                          gender: "女",
-                          grade: "研一",
-                          department: "软件学院",
-                          campus: "鼓楼校区",
-                          birth_year: 2001,
-                          deleted_at: null,
-                          created_at: "2026-03-10T12:00:00.000Z",
-                        },
-                        {
-                          id: "user-2",
-                          role: "user",
-                          account_status: "active",
-                          nickname: "Hong 同学",
-                          gender: "男",
-                          grade: "大四",
-                          department: "计算机学院",
-                          campus: "仙林校区",
-                          birth_year: 2000,
-                          deleted_at: null,
-                          created_at: "2026-03-08T12:00:00.000Z",
-                        },
-                      ],
+                if (columns === "id") {
+                  return {
+                    ilike: vi.fn(async () => ({
+                      data: [{ id: "user-2" }],
                       error: null,
                     })),
+                  };
+                }
+
+                return {
+                  in: vi.fn(() => ({
+                    order: vi.fn(() => ({
+                      range: vi.fn(async () => ({
+                        data: [
+                          {
+                            id: "user-1",
+                            role: "admin",
+                            account_status: "active",
+                            nickname: "运营 Hong",
+                            gender: "女",
+                            grade: "研一",
+                            department: "软件学院",
+                            campus: "鼓楼校区",
+                            birth_year: 2001,
+                            deleted_at: null,
+                            created_at: "2026-03-10T12:00:00.000Z",
+                          },
+                          {
+                            id: "user-2",
+                            role: "user",
+                            account_status: "active",
+                            nickname: "Hong 同学",
+                            gender: "男",
+                            grade: "大四",
+                            department: "计算机学院",
+                            campus: "仙林校区",
+                            birth_year: 2000,
+                            deleted_at: null,
+                            created_at: "2026-03-08T12:00:00.000Z",
+                          },
+                        ],
+                        error: null,
+                      })),
+                    })),
                   })),
-                })),
-              };
-            }),
+                };
+              },
+            ),
           };
         }
 
@@ -334,7 +352,11 @@ describe("listAdminUsers", () => {
                 in: vi.fn(() => ({
                   order: vi.fn(async () => ({
                     data: [
-                      { user_id: "user-1", status: "submitted", submission_no: 2 },
+                      {
+                        user_id: "user-1",
+                        status: "submitted",
+                        submission_no: 2,
+                      },
                       { user_id: "user-2", status: "draft", submission_no: 1 },
                     ],
                     error: null,
@@ -375,7 +397,12 @@ describe("listAdminUsers", () => {
 
     const result = await listAdminUsers(1, { keyword: "hong" });
 
-    expect(listUsersMock).toHaveBeenCalledWith({ page: 1, perPage: 500 });
+    expect(adminRpcMock).toHaveBeenCalledWith(
+      "find_auth_user_ids_by_email_keyword",
+      {
+        p_keyword: "hong",
+      },
+    );
     expect(result.total).toBe(2);
     expect(result.items.map((item) => item.id)).toEqual(["user-1", "user-2"]);
     expect(result.items[0]).toMatchObject({
