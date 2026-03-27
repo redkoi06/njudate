@@ -1,6 +1,6 @@
 {
-  "title": "2026 春季脱单偏好问卷（导入测试版）",
-  "description": "根据主目录问卷.md 整理的导入测试版本，覆盖日常节奏、价值观、关系模式与择偶期待。",
+  "title": "2026 春季匹配偏好问卷",
+  "description": "帮助我们更好地理解你，让每一次相遇更合适。",
   "matchingPolicy": {
     "minimumPairScore": 60,
     "profileFilters": [
@@ -52,6 +52,7 @@
           "kind": "scale",
           "prompt": "你的就寝守则",
           "isRequired": true,
+          "weight": 1.5,
           "sortOrder": 1,
           "scaleMin": 1,
           "scaleMax": 7,
@@ -118,34 +119,6 @@
           "scaleLeftLabel": "超级社恐：出门一趟，充电三天",
           "scaleMiddleLabel": "看熟人浓度，熟人面前是疯子",
           "scaleRightLabel": "社交永动机：人越多我越嗨，靠社交充电"
-        },
-        {
-          "questionCode": "q-mbti-code",
-          "kind": "single",
-          "prompt": "你的 MBTI 灵魂代码",
-          "helperText": "单选；如果你不认同 MBTI，也可以选最后两项。",
-          "isRequired": true,
-          "sortOrder": 7,
-          "options": [
-            { "id": "intj", "label": "INTJ" },
-            { "id": "intp", "label": "INTP" },
-            { "id": "entj", "label": "ENTJ" },
-            { "id": "entp", "label": "ENTP" },
-            { "id": "infj", "label": "INFJ" },
-            { "id": "infp", "label": "INFP" },
-            { "id": "enfj", "label": "ENFJ" },
-            { "id": "enfp", "label": "ENFP" },
-            { "id": "istj", "label": "ISTJ" },
-            { "id": "isfj", "label": "ISFJ" },
-            { "id": "estj", "label": "ESTJ" },
-            { "id": "esfj", "label": "ESFJ" },
-            { "id": "istp", "label": "ISTP" },
-            { "id": "isfp", "label": "ISFP" },
-            { "id": "estp", "label": "ESTP" },
-            { "id": "esfp", "label": "ESFP" },
-            { "id": "schrodinger", "label": "我是薛定谔的性格" },
-            { "id": "wealth-believer", "label": "我只信财神" }
-          ]
         },
         {
           "questionCode": "q-alcohol-vibe",

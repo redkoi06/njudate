@@ -211,6 +211,9 @@ export function PublicShell({
             <p className="text-secondary-foreground/80 mt-4 text-sm leading-7">
               NJU Date：Not just dating tools, but connect the dots.
             </p>
+            <p className="text-secondary-foreground/65 mt-2 text-xs leading-6">
+              © 2026 NJU Date. All Rights Reserved.
+            </p>
           </div>
           <div className="grid gap-12 sm:grid-cols-2">
             <div>

@@ -36,7 +36,7 @@ export function SettingsForm({
   return (
     <form action={action} className="mt-8 grid gap-4">
       <label className="border-border flex items-center justify-between rounded-2xl border px-4 py-4 text-sm">
-        匹配结果提醒
+        匹配结果与联系方式开放提醒
         <input
           type="checkbox"
           name="notifyMatchResult"

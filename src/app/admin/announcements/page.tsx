@@ -165,7 +165,7 @@ export default async function AdminAnnouncementsPage({
                     <Badge>{getAudienceLabel(announcement.audience)}</Badge>
                   </div>
                   <h2 className="mt-3 text-2xl">{announcement.title}</h2>
-                  <p className="text-secondary-foreground/80 mt-3 text-sm leading-7">
+                  <p className="text-secondary-foreground/80 mt-3 whitespace-pre-line text-sm leading-7">
                     {announcement.body}
                   </p>
                   <p className="text-secondary-foreground/80 mt-4 text-sm leading-7">

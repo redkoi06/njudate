@@ -218,19 +218,27 @@ async function createNotification(input: {
     return;
   }
 
-  const emailResult = await sendTransactionalEmail({
+  void sendTransactionalEmail({
     to: input.emailTo,
     subject: input.title,
     text: input.body,
-  });
+  })
+    .then(async (emailResult) => {
+      const { error: updateError } = await admin
+        .from("notifications")
+        .update({
+          email_status: emailResult.ok ? "sent" : "failed",
+          emailed_at: emailResult.ok ? new Date().toISOString() : null,
+        })
+        .eq("id", data.id);
 
-  await admin
-    .from("notifications")
-    .update({
-      email_status: emailResult.ok ? "sent" : "failed",
-      emailed_at: emailResult.ok ? new Date().toISOString() : null,
+      if (updateError) {
+        console.error("Failed to update notification email status", updateError);
+      }
     })
-    .eq("id", data.id);
+    .catch((error) => {
+      console.error("Background email send failed", error);
+    });
 }
 
 async function getPublishedMatchRoundNo(input: {

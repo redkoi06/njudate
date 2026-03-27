@@ -1,12 +1,42 @@
 "use client";
 
 import { X } from "lucide-react";
-import { useEffect, useId, useState } from "react";
+import { Fragment, useEffect, useId, useState } from "react";
 
 import {
+  type LegalRichText,
   PRIVACY_PAGE_CONTENT,
   USER_AGREEMENT_DIALOG_TITLE,
 } from "@/features/legal/content";
+import { cn } from "@/lib/utils";
+
+function RichTextBlock({
+  segments,
+  as: Component = "p",
+  className,
+}: {
+  segments: LegalRichText;
+  as?: "p" | "h2" | "h3" | "span";
+  className?: string;
+}) {
+  return (
+    <Component className={className}>
+      {segments.map((segment, index) => (
+        <Fragment key={`${segment.text}-${index}`}>
+          <span
+            className={cn(
+              segment.bold && "font-semibold text-[color:var(--text-dark)]",
+              segment.underline &&
+                "underline decoration-[color:rgba(139,74,82,0.3)] underline-offset-[0.22em]",
+            )}
+          >
+            {segment.text}
+          </span>
+        </Fragment>
+      ))}
+    </Component>
+  );
+}
 
 export function UserAgreementDialog() {
   const [open, setOpen] = useState(false);
@@ -41,7 +71,7 @@ export function UserAgreementDialog() {
         className="text-primary font-medium underline decoration-[color:rgba(139,74,82,0.28)] underline-offset-4 transition hover:text-[color:var(--wine-deep)]"
         onClick={() => setOpen(true)}
       >
-        《NJU Date用户协议》
+        {USER_AGREEMENT_DIALOG_TITLE}
       </button>
 
       {open ? (
@@ -53,50 +83,82 @@ export function UserAgreementDialog() {
             role="dialog"
             aria-modal="true"
             aria-labelledby={titleId}
-            className="relative flex max-h-[min(720px,calc(100vh-2rem))] w-full max-w-3xl flex-col overflow-hidden rounded-[32px] border border-white/50 bg-[rgba(255,252,250,0.98)] shadow-[0_28px_80px_rgba(31,24,24,0.22)]"
+            className="relative flex max-h-[min(760px,calc(100vh-2rem))] w-full max-w-4xl flex-col overflow-hidden rounded-[20px] border border-[color:rgba(139,74,82,0.12)] bg-[rgba(255,253,251,0.98)] shadow-[0_24px_64px_rgba(31,24,24,0.18)]"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="flex items-start justify-between gap-6 border-b border-[color:rgba(139,74,82,0.1)] px-6 pt-6 pb-5 sm:px-8">
-              <div>
-                <p className="text-muted-foreground text-xs tracking-[0.22em]">
-                  用户协议
-                </p>
-                <h2
-                  id={titleId}
-                  className="mt-3 text-2xl leading-[1.45] text-[color:var(--wine-deep)] sm:text-[2rem]"
-                >
-                  {USER_AGREEMENT_DIALOG_TITLE}
-                </h2>
-              </div>
+            <div className="flex items-center justify-between gap-4 border-b border-[color:rgba(139,74,82,0.1)] px-5 py-4 sm:px-6">
+              <h2
+                id={titleId}
+                className="text-lg leading-7 font-semibold text-[color:var(--text-dark)] sm:text-xl"
+              >
+                {USER_AGREEMENT_DIALOG_TITLE}
+              </h2>
 
               <button
                 type="button"
                 aria-label="关闭用户协议"
-                className="text-muted-foreground hover:text-foreground inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-[color:rgba(139,74,82,0.08)] bg-white/80 transition"
+                className="text-muted-foreground hover:text-foreground inline-flex size-8 shrink-0 items-center justify-center rounded-full transition"
                 onClick={() => setOpen(false)}
               >
                 <X size={18} />
               </button>
             </div>
 
-            <div className="overflow-y-auto px-6 pt-6 pb-7 sm:px-8">
-              <p className="text-secondary-foreground/85 text-sm leading-8 sm:text-base">
-                {PRIVACY_PAGE_CONTENT.description}
-              </p>
+            <article className="overflow-y-auto px-5 py-5 sm:px-6 sm:py-6">
+              <div className="mx-auto max-w-3xl text-[13px] leading-7 text-[color:var(--text-secondary)] sm:text-sm">
+                <RichTextBlock
+                  segments={PRIVACY_PAGE_CONTENT.introSegments}
+                  className="text-[color:var(--text-secondary)]"
+                />
 
-              <div className="mt-6 grid gap-4">
-                {PRIVACY_PAGE_CONTENT.points.map((item) => (
-                  <section
-                    key={item}
-                    className="rounded-[24px] border border-[color:rgba(139,74,82,0.1)] bg-white/84 px-5 py-4"
-                  >
-                    <p className="text-sm leading-7 text-[color:var(--text-dark)] sm:text-base">
-                      {item}
-                    </p>
-                  </section>
-                ))}
+                <div className="mt-4">
+                  <RichTextBlock
+                    segments={PRIVACY_PAGE_CONTENT.summaryTitle}
+                    className="text-[color:var(--text-dark)]"
+                  />
+                  <ul className="mt-2 space-y-1.5 pl-5">
+                    {PRIVACY_PAGE_CONTENT.summaryItems.map((item) => (
+                      <li
+                        key={item.description.map((part) => part.text).join("")}
+                      >
+                        <RichTextBlock
+                          segments={item.title}
+                          as="span"
+                          className="inline"
+                        />
+                        <span>：</span>
+                        <RichTextBlock
+                          segments={item.description}
+                          as="span"
+                          className="inline"
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="mt-5 space-y-5">
+                  {PRIVACY_PAGE_CONTENT.sections.map((section) => (
+                    <section key={section.id}>
+                      <RichTextBlock
+                        segments={section.title}
+                        as="h3"
+                        className="text-sm leading-7 font-semibold text-[color:var(--text-dark)] sm:text-base"
+                      />
+                      <div className="mt-1.5 space-y-1.5">
+                        {section.paragraphs.map((paragraph, index) => (
+                          <RichTextBlock
+                            key={`${section.id}-${index}`}
+                            segments={paragraph}
+                            className="text-[color:var(--text-secondary)]"
+                          />
+                        ))}
+                      </div>
+                    </section>
+                  ))}
+                </div>
               </div>
-            </div>
+            </article>
           </div>
         </div>
       ) : null}

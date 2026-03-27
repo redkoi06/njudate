@@ -13,18 +13,14 @@ describe("UserAgreementDialog", () => {
     render(createElement(UserAgreementDialog));
 
     await user.click(
-      screen.getByRole("button", { name: "《NJU Date用户协议》" }),
+      screen.getByRole("button", { name: PRIVACY_PAGE_CONTENT.title }),
     );
 
     expect(
-      screen.getByRole("dialog", { name: "NJU Date 用户协议" }),
+      screen.getByRole("dialog", { name: PRIVACY_PAGE_CONTENT.title }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(PRIVACY_PAGE_CONTENT.description),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(PRIVACY_PAGE_CONTENT.points[0] ?? ""),
-    ).toBeInTheDocument();
+    expect(screen.getByText("💡 太长不看版（核心摘要）：")).toBeInTheDocument();
+    expect(screen.getByText("一、账号注册与用户规范")).toBeInTheDocument();
   });
 
   it("closes the dialog through the close button", async () => {
@@ -33,12 +29,12 @@ describe("UserAgreementDialog", () => {
     render(createElement(UserAgreementDialog));
 
     await user.click(
-      screen.getByRole("button", { name: "《NJU Date用户协议》" }),
+      screen.getByRole("button", { name: PRIVACY_PAGE_CONTENT.title }),
     );
     await user.click(screen.getByRole("button", { name: "关闭用户协议" }));
 
     expect(
-      screen.queryByRole("dialog", { name: "NJU Date 用户协议" }),
+      screen.queryByRole("dialog", { name: PRIVACY_PAGE_CONTENT.title }),
     ).not.toBeInTheDocument();
   });
 });

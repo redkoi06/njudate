@@ -106,7 +106,7 @@ export default async function DashboardPage() {
                   {item.eyebrow}
                 </p>
                 <p className="mt-2 text-lg">{item.title}</p>
-                <p className="text-secondary-foreground/80 mt-2 text-sm leading-7">
+                <p className="text-secondary-foreground/80 mt-2 whitespace-pre-line text-sm leading-7">
                   {item.body}
                 </p>
               </div>

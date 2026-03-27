@@ -123,6 +123,11 @@ async function captureRedirect(action: Promise<unknown>) {
   return redirectUrl as string;
 }
 
+async function flushMicrotasks() {
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
 describe("account actions", () => {
   const deleteActionUserId = "11111111-1111-4111-8111-111111111111";
   const cancelledParticipationId = "22222222-2222-4222-8222-222222222222";
@@ -543,6 +548,7 @@ describe("account actions", () => {
     const redirectUrl = await captureRedirect(
       triggerMatchContactAction(formData),
     );
+    await flushMicrotasks();
 
     expect(rpcMock).toHaveBeenCalledWith("trigger_match_contact", {
       p_match_pair_id: matchPairId,
