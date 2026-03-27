@@ -83,7 +83,7 @@ export const PRIVACY_PAGE_CONTENT = {
         [
           { text: "账号处置权：", bold: true },
           {
-            text: " 如发现您违反上述规范，NJU Date Teams有权限制、暂停或终止您的账号使用权。",
+            text: " 如发现您违反上述规范，NJU Date Team有权限制、暂停或终止您的账号使用权。",
           },
         ],
       ] as const,
@@ -130,7 +130,7 @@ export const PRIVACY_PAGE_CONTENT = {
           },
           { text: "非对称加密逻辑与分布式存储方案", bold: true },
           {
-            text: "，即使是NJU Date Teams，也无法将您的真实身份与问卷选项直接关联。",
+            text: "，即使是NJU Date Team，也无法将您的真实身份与问卷选项直接关联。",
           },
         ],
         [
@@ -205,7 +205,7 @@ export const PRIVACY_PAGE_CONTENT = {
         ],
         [
           {
-            text: "本平台功能的最终解释权归属NJU Date Teams。如有任何关于隐私或功能的疑问，欢迎随时联系我们。",
+            text: "本平台功能的最终解释权归属NJU Date Team。如有任何关于隐私或功能的疑问，欢迎随时联系我们。",
           },
         ],
       ] as const,

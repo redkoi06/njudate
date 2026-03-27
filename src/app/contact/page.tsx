@@ -21,7 +21,7 @@ export default async function ContactPage() {
             <h2 className="text-2xl">联系方式</h2>
             <div className="text-secondary-foreground/80 mt-5 grid gap-3 text-sm leading-7">
               <p className="border-border rounded-2xl border p-4">
-                no-reply@njudate.cn
+                njudate_official@163.com
               </p>
             </div>
           </SurfaceCard>
