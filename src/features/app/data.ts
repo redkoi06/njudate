@@ -478,11 +478,32 @@ export async function getParticipationState(userId: string) {
     } satisfies ParticipationState;
   }
 
-  const questionnaire = await getQuestionnaireState(userId);
-  if (
-    questionnaire.windowStatus !== "open" ||
-    !isQuestionnaireCompletedStatus(questionnaire.status)
-  ) {
+  const {
+    data: questionnaireSubmissions,
+    error: questionnaireSubmissionsError,
+  } = await supabase
+    .from("questionnaire_submissions")
+    .select("status")
+    .eq("user_id", userId)
+    .eq("questionnaire_version_id", questionnaireContext.versionId)
+    .in("status", ["draft", "submitted"]);
+
+  if (questionnaireSubmissionsError) {
+    throw questionnaireSubmissionsError;
+  }
+
+  const questionnaireStatus = getQuestionnaireStateStatus({
+    hasDraft:
+      questionnaireSubmissions?.some(
+        (submission) => submission.status === "draft",
+      ) ?? false,
+    hasSubmitted:
+      questionnaireSubmissions?.some(
+        (submission) => submission.status === "submitted",
+      ) ?? false,
+  });
+
+  if (!isQuestionnaireCompletedStatus(questionnaireStatus)) {
     return {
       batchId: batch.id,
       label: batch.label,
@@ -491,8 +512,8 @@ export async function getParticipationState(userId: string) {
       matchRunAt: batch.match_run_at,
       status: "unavailable",
       reason: getQuestionnaireParticipationRequirement({
-        status: questionnaire.status,
-        windowStatus: questionnaire.windowStatus,
+        status: questionnaireStatus,
+        windowStatus: questionnaireContext.windowStatus,
       }),
     } satisfies ParticipationState;
   }
