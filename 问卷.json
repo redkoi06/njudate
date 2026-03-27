@@ -497,9 +497,8 @@
       "questions": [
         {
           "questionCode": "q-future-city-plan",
-          "kind": "multiple",
+          "kind": "single",
           "prompt": "关于未来的城市坐标，你的设想",
-          "helperText": "可多选。",
           "isRequired": true,
           "sortOrder": 1,
           "options": [
@@ -512,9 +511,8 @@
         },
         {
           "questionCode": "q-long-distance-acceptance",
-          "kind": "multiple",
+          "kind": "single",
           "prompt": "对于异地恋的接受度",
-          "helperText": "可多选。",
           "isRequired": true,
           "sortOrder": 2,
           "options": [
@@ -526,9 +524,8 @@
         },
         {
           "questionCode": "q-age-preference",
-          "kind": "multiple",
+          "kind": "single",
           "prompt": "关于年龄的偏好",
-          "helperText": "可多选。",
           "isRequired": true,
           "sortOrder": 3,
           "options": [
@@ -552,9 +549,8 @@
         },
         {
           "questionCode": "q-dating-expectation",
-          "kind": "multiple",
+          "kind": "single",
           "prompt": "你内心最真实的脱单期待",
-          "helperText": "可多选。",
           "isRequired": true,
           "sortOrder": 5,
           "options": [

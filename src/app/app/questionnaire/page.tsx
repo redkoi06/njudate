@@ -69,6 +69,9 @@ export default async function QuestionnairePage({
           </Badge>
         }
       />
+      <p className="text-muted-foreground mt-2 text-sm leading-7">
+        填写未完成？可以点击下方「保存草稿」，稍后继续。
+      </p>
       <div className="mt-6 rounded-2xl border border-border bg-background/70 px-4 py-4 text-sm leading-7 text-secondary-foreground">
         {getQuestionnaireStatusHint({
           resultPublishAt: questionnaire.resultPublishAt,
