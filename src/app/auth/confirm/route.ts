@@ -14,6 +14,19 @@ function createRegisterErrorUrl(message: string, siteUrl: string) {
   return url;
 }
 
+function redirectWithExistingCookies(
+  currentResponse: NextResponse,
+  targetUrl: URL,
+) {
+  const nextResponse = NextResponse.redirect(targetUrl);
+
+  currentResponse.cookies.getAll().forEach((cookie) => {
+    nextResponse.cookies.set(cookie);
+  });
+
+  return nextResponse;
+}
+
 export async function GET(request: NextRequest) {
   const tokenHash = request.nextUrl.searchParams.get("token_hash");
   const type = request.nextUrl.searchParams.get("type");
@@ -74,7 +87,8 @@ export async function GET(request: NextRequest) {
   );
 
   if (provisionError) {
-    response = NextResponse.redirect(
+    response = redirectWithExistingCookies(
+      response,
       createRegisterErrorUrl(
         "邮箱已确认，但初始化账号失败，请重新登录或联系管理员。",
         env.NEXT_PUBLIC_SITE_URL,
@@ -96,7 +110,8 @@ export async function GET(request: NextRequest) {
       .maybeSingle();
 
     if (!roleResult.error && roleResult.data?.role) {
-      response = NextResponse.redirect(
+      response = redirectWithExistingCookies(
+        response,
         new URL(
           getDefaultHomePathForRole(roleResult.data.role),
           env.NEXT_PUBLIC_SITE_URL,

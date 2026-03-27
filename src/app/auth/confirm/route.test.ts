@@ -54,4 +54,58 @@ describe("auth confirm route", () => {
     expect(verifyOtpMock).not.toHaveBeenCalled();
     expect(rpcMock).not.toHaveBeenCalled();
   });
+
+  it("keeps the auth session cookie after successful confirmation", async () => {
+    getRegistrationOpenMock.mockResolvedValue(true);
+
+    createServerClientMock.mockImplementation((_url, _key, options) => ({
+      auth: {
+        verifyOtp: vi.fn(async () => {
+          options.cookies.setAll([
+            {
+              name: "sb-test-auth-token",
+              value: "session-token",
+              options: {
+                httpOnly: true,
+                path: "/",
+              },
+            },
+          ]);
+
+          return { error: null };
+        }),
+        getUser: vi.fn(async () => ({
+          data: {
+            user: {
+              id: "user-1",
+            },
+          },
+        })),
+      },
+      rpc: vi.fn(async () => ({
+        error: null,
+      })),
+      from: vi.fn(() => ({
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            maybeSingle: vi.fn(async () => ({
+              data: { role: "user" },
+              error: null,
+            })),
+          })),
+        })),
+      })),
+    }));
+
+    const request = new NextRequest(
+      "http://localhost:3000/auth/confirm?token_hash=test-token&type=email",
+    );
+
+    const response = await GET(request);
+
+    expect(response.headers.get("location")).toBe("http://localhost:3000/app");
+    expect(response.cookies.get("sb-test-auth-token")?.value).toBe(
+      "session-token",
+    );
+  });
 });
