@@ -162,6 +162,18 @@ export default async function LoginPage({
               </span>
             )}
           </p>
+
+          <div className="mt-5 rounded-[22px] border border-[color:rgba(139,74,82,0.12)] bg-[color:rgba(245,241,239,0.72)] px-5 py-4 text-center">
+            <p className="text-secondary-foreground/78 text-sm leading-7">
+              忘记密码？请使用注册时的校园邮箱联系我们。
+            </p>
+            <a
+              href="mailto:njudate_official@163.com"
+              className="text-primary mt-1 inline-block text-sm font-medium underline decoration-[color:rgba(139,74,82,0.24)] underline-offset-4 transition hover:text-[color:var(--wine-deep)]"
+            >
+              njudate_official@163.com
+            </a>
+          </div>
         </div>
       </main>
     </div>

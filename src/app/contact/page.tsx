@@ -12,7 +12,7 @@ export default async function ContactPage() {
           <SurfaceCard>
             <SectionHeader
               eyebrow="联系我们"
-              title="联系NJU Date Team的唯一方式"
+              title="联系NJU Date Team的方式"
               description="任何有关问题，反馈，建议，或者想和NJU Date Team聊聊……"
             />
           </SurfaceCard>
