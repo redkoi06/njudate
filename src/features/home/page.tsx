@@ -100,6 +100,17 @@ function HomeShell({
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(240,230,232,0.95),transparent_28%),linear-gradient(180deg,#faf7f4_0%,#fffdfb_100%)]">
       <header className="border-border/80 bg-background/90 sticky top-0 z-40 border-b backdrop-blur-xl">
+        <div className="border-border/70 bg-[linear-gradient(90deg,rgba(139,74,82,0.12),rgba(139,74,82,0.06))]">
+          <div className="mx-auto flex w-full max-w-7xl items-start gap-3 px-5 py-2.5 md:px-8">
+            <span
+              aria-hidden
+              className="mt-1 inline-flex size-2.5 shrink-0 rounded-full bg-[color:var(--wine)]"
+            />
+            <p className="text-[13px] leading-5 text-[color:var(--wine-deep)] md:text-sm">
+              因服务器故障，18:30前发出的注册链接有概率无法打开。现已修复此问题。如遇注册链接无法打开的情况，请重试。感谢您的理解！
+            </p>
+          </div>
+        </div>
         <div className="mx-auto flex h-18 w-full max-w-7xl items-center justify-between gap-6 px-5 md:px-8">
           <Link href="/">
             <HomeBrandLogo compact />
