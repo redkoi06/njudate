@@ -22,6 +22,8 @@ export default async function ContactPage() {
             <div className="text-secondary-foreground/80 mt-5 grid gap-3 text-sm leading-7">
               <p className="border-border rounded-2xl border p-4">
                 邮箱：njudate_official@163.com
+              </p>
+              <p className="border-border rounded-2xl border p-4">
                 小红书账号：NJUDate_official
               </p>
             </div>
