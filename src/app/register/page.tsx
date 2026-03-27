@@ -56,6 +56,16 @@ export default async function RegisterPage({
                   <p className="mt-2 text-base leading-8">
                     请打开邮箱并点击确认链接。确认后，打开该链接的浏览器会跳转至登录页面。若要继续使用当前页面，请返回此页，用邮箱和密码登录。
                   </p>
+                  <div
+                    aria-hidden="true"
+                    className="mt-4 h-px w-14 bg-[color:var(--status-success)]/18"
+                  />
+                  <p className="mt-4 text-base leading-8">
+                    若未收到确认邮件，请先检查垃圾邮箱，确认邮件可能被系统误判。
+                  </p>
+                  <p className="mt-2 text-base leading-8">
+                    如果在垃圾邮箱中仍未找到，请联系 njudate_official@163.com，我们会第一时间为你处理。
+                  </p>
                 </div>
               </div>
             ) : null}
