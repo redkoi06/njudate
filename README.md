@@ -117,3 +117,5 @@ npm run supabase:types
 - `npm run typecheck`
 - `npm run test`
 - `npm run build`
+
+## 匹配算法
