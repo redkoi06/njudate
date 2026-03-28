@@ -1,6 +1,11 @@
 import Link from "next/link";
 
-import { EmptyState, SectionHeader, SurfaceCard } from "@/components/site-ui";
+import {
+  EmptyState,
+  FlashToast,
+  SectionHeader,
+  SurfaceCard,
+} from "@/components/site-ui";
 import { getMatchRecords } from "@/features/app/data";
 import { requireAppUser } from "@/lib/auth/session";
 import { formatDateTime } from "@/lib/site";
@@ -25,13 +30,25 @@ function getHistoryMatchStatusLabel(
   }
 }
 
-export default async function MatchesPage() {
-  const user = await requireAppUser();
+export default async function MatchesPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+} = {}) {
+  const [user, resolvedSearchParams] = await Promise.all([
+    requireAppUser(),
+    searchParams,
+  ]);
+  const error =
+    typeof resolvedSearchParams?.error === "string"
+      ? resolvedSearchParams.error
+      : "";
   const records = await getMatchRecords(user.id);
   const [latestRecord, ...historyRecords] = records;
 
   return (
     <div className="grid gap-6">
+      <FlashToast message={error} />
       <SurfaceCard>
         <SectionHeader
           eyebrow="匹配记录"

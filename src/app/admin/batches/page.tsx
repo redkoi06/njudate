@@ -2,6 +2,7 @@ import {
   Button,
   ButtonLink,
   EmptyState,
+  FlashToast,
   Field,
   SectionHeader,
   SelectField,
@@ -35,6 +36,7 @@ export default async function AdminBatchesPage({
 
   return (
     <div className="grid gap-6">
+      <FlashToast message={error} />
       <div id={createBatchFeedbackId}>
         <SurfaceCard>
           <SectionHeader
@@ -42,14 +44,6 @@ export default async function AdminBatchesPage({
             title="创建并推进每周批次"
             description="系统同一时间只允许存在一个当前轮次。批次编号、code 和展示轮次号都由系统自动递增生成，批次会按时间自动流转，管理员仅做补救和补执行。"
           />
-          {error ? (
-            <div
-              role="alert"
-              className="mt-6 rounded-2xl border border-[color:var(--status-warning)]/20 bg-[color:var(--status-warning-bg)] px-4 py-3 text-sm text-[color:var(--status-warning)]"
-            >
-              {error}
-            </div>
-          ) : null}
           <form action={createBatchAction} className="mt-8 grid gap-5">
             <div className="grid gap-5 lg:grid-cols-2">
               <SelectField

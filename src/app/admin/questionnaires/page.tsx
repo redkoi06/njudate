@@ -1,4 +1,11 @@
-import { Badge, ButtonLink, EmptyState, SectionHeader, SurfaceCard } from "@/components/site-ui";
+import {
+  Badge,
+  ButtonLink,
+  EmptyState,
+  FlashToast,
+  SectionHeader,
+  SurfaceCard,
+} from "@/components/site-ui";
 import {
   getQuestionnairePublishingGate,
   listQuestionnaireVersions,
@@ -23,6 +30,7 @@ export default async function AdminQuestionnairesPage({
 
   return (
     <div className="grid gap-6">
+      <FlashToast message={error} />
       <SurfaceCard>
         <SectionHeader
           eyebrow="问卷版本"
@@ -37,11 +45,6 @@ export default async function AdminQuestionnairesPage({
             </ButtonLink>
           }
         />
-        {error ? (
-          <div className="mt-6 rounded-2xl border border-[color:var(--status-warning)]/20 bg-[color:var(--status-warning-bg)] px-4 py-3 text-sm text-[color:var(--status-warning)]">
-            {error}
-          </div>
-        ) : null}
         {!gate.canManage && gate.reason ? (
           <p className="text-secondary-foreground/80 mt-6 text-sm leading-7">
             当前不可导入或发布问卷：{gate.reason}

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import loginBrandIcon from "../../../icon/icon.png";
-import { Button, Field } from "@/components/site-ui";
+import { Button, Field, FlashToast } from "@/components/site-ui";
 import { signInWithPasswordAction } from "@/features/app/actions";
 import { getCurrentSessionHomePath, getOptionalSessionUser } from "@/lib/auth/session";
 import { getRegistrationOpen } from "@/lib/auth/registration";
@@ -39,6 +39,7 @@ export default async function LoginPage({
 
   return (
     <div className="grid min-h-screen bg-[linear-gradient(180deg,#f8f3ef_0%,#fffdfb_100%)] lg:grid-cols-[minmax(0,1.08fr)_minmax(440px,0.92fr)]">
+      <FlashToast message={error} />
       <aside className="relative min-h-[320px] overflow-hidden lg:min-h-screen">
         <Image
           src={LOGIN_HERO_IMAGE}
@@ -100,12 +101,6 @@ export default async function LoginPage({
             使用你的 {allowedEmailDomainsLabel}{" "}
             邮箱和密码登录。首次使用请先注册并完成邮箱确认。
           </p>
-
-          {error ? (
-            <p className="mt-6 rounded-[24px] border border-[color:var(--status-warning)]/20 bg-[color:var(--status-warning-bg)] px-4 py-3 text-sm leading-7 text-[color:var(--status-warning)]">
-              {error}
-            </p>
-          ) : null}
 
           <form
             action={signInWithPasswordAction}

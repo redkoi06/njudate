@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { requireAdminUser } from "@/lib/auth/session";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
+import { isUuid } from "@/lib/uuid";
 import type { Json } from "@/types/database.generated";
 
 import { getQuestionnairePublishingGate } from "./data";
@@ -30,6 +31,18 @@ function redirectWithMessage(
   redirect(
     searchParams.size > 0 ? `${pathname}?${searchParams.toString()}` : pathname,
   );
+}
+
+function requireVersionId(rawVersionId: string) {
+  const versionId = rawVersionId.trim();
+
+  if (!isUuid(versionId)) {
+    redirectWithMessage("/admin/questionnaires", {
+      error: "问卷版本标识无效。",
+    });
+  }
+
+  return versionId;
 }
 
 async function logQuestionnaireOperation(input: {
@@ -206,14 +219,8 @@ export async function importQuestionnaireDefinitionAction(formData: FormData) {
 
 export async function publishQuestionnaireVersionAction(formData: FormData) {
   const actor = await requireAdminUser();
-  const versionId = stringField(formData, "versionId");
+  const versionId = requireVersionId(stringField(formData, "versionId"));
   const gate = await getQuestionnairePublishingGate();
-
-  if (!versionId) {
-    redirectWithMessage("/admin/questionnaires", {
-      error: "缺少待发布的问卷版本。",
-    });
-  }
 
   if (!gate.canManage) {
     redirectWithMessage(`/admin/questionnaires/${versionId}`, {
@@ -298,13 +305,7 @@ export async function publishQuestionnaireVersionAction(formData: FormData) {
 
 export async function deleteDraftQuestionnaireAction(formData: FormData) {
   await requireAdminUser();
-  const versionId = stringField(formData, "versionId");
-
-  if (!versionId) {
-    redirectWithMessage("/admin/questionnaires", {
-      error: "缺少待删除的 draft 问卷。",
-    });
-  }
+  const versionId = requireVersionId(stringField(formData, "versionId"));
 
   const admin = createAdminSupabaseClient();
   const { error } = await admin

@@ -1,4 +1,10 @@
-import { Button, SectionHeader, SurfaceCard, TextArea } from "@/components/site-ui";
+import {
+  Button,
+  FlashToast,
+  SectionHeader,
+  SurfaceCard,
+  TextArea,
+} from "@/components/site-ui";
 import {
   updateMatchScheduleTextAction,
   updateRegistrationOpenAction,
@@ -25,17 +31,13 @@ export default async function AdminConfigsPage({
 
   return (
     <div className="grid gap-6">
+      <FlashToast message={error} />
       <SurfaceCard>
         <SectionHeader
           eyebrow="平台配置"
           title="维护基础运营配置"
           description="当前后台只开放 match_schedule_text 与 registration_open，其他旧配置项不再提供编辑入口。"
         />
-        {error ? (
-          <div className="mt-6 rounded-2xl border border-[color:var(--status-warning)]/20 bg-[color:var(--status-warning-bg)] px-4 py-3 text-sm text-[color:var(--status-warning)]">
-            {error}
-          </div>
-        ) : null}
         <form action={updateMatchScheduleTextAction} className="mt-8 grid gap-5">
           <TextArea
             name="value"

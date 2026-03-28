@@ -10,6 +10,7 @@ import type {
   SelectHTMLAttributes,
   TextareaHTMLAttributes,
 } from "react";
+import { useEffect, useState } from "react";
 
 import brandMark from "../../icon/icon.png";
 import { cn } from "@/lib/utils";
@@ -184,6 +185,58 @@ export function FieldErrorMessage({
         <CircleAlert className="size-3.5" />
       </span>
       <span>{message}</span>
+    </div>
+  );
+}
+
+export function FlashToast({
+  message,
+  durationMs = 3000,
+}: {
+  message?: string | null | undefined;
+  durationMs?: number;
+}) {
+  const [visible, setVisible] = useState(Boolean(message));
+
+  useEffect(() => {
+    if (!message) {
+      setVisible(false);
+      return;
+    }
+
+    setVisible(true);
+    const timeoutId = window.setTimeout(() => {
+      setVisible(false);
+    }, durationMs);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [durationMs, message]);
+
+  if (!message) {
+    return null;
+  }
+
+  return (
+    <div
+      aria-live="polite"
+      className="pointer-events-none fixed inset-x-0 top-5 z-[120] flex justify-center px-4 sm:px-6"
+    >
+      <div
+        role="alert"
+        className={cn(
+          "pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-[24px] border border-[color:var(--status-warning)]/25 bg-[color:rgba(255,255,255,0.96)] px-4 py-3 text-sm leading-6 text-[color:var(--status-warning)] shadow-[0_20px_44px_rgba(31,24,24,0.12)] backdrop-blur transition duration-300",
+          visible
+            ? "translate-y-0 opacity-100"
+            : "-translate-y-2 opacity-0",
+        )}
+      >
+        <span className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-[color:var(--status-warning-bg)] text-[color:var(--status-warning)] shadow-[0_8px_18px_rgba(160,122,58,0.14)]">
+          <CircleAlert className="size-4" />
+        </span>
+        <span className="min-w-0 flex-1">{message}</span>
+      </div>
     </div>
   );
 }

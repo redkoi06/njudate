@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { SectionHeader, SurfaceCard } from "@/components/site-ui";
+import { FlashToast, SectionHeader, SurfaceCard } from "@/components/site-ui";
 import {
   getAnnouncements,
   getDashboardData,
@@ -8,8 +8,19 @@ import {
 } from "@/features/app/data";
 import { requireAppUser } from "@/lib/auth/session";
 
-export default async function DashboardPage() {
-  const user = await requireAppUser();
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const [user, resolvedSearchParams] = await Promise.all([
+    requireAppUser(),
+    searchParams,
+  ]);
+  const error =
+    typeof resolvedSearchParams?.error === "string"
+      ? resolvedSearchParams.error
+      : "";
   const [dashboard, announcements, notifications] = await Promise.all([
     getDashboardData(user.id),
     getAnnouncements().catch(() => []),
@@ -20,6 +31,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="grid gap-6">
+      <FlashToast message={error} />
       <SurfaceCard>
         <SectionHeader
           eyebrow="用户主页"

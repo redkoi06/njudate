@@ -7,6 +7,7 @@ import { z } from "zod";
 import { requireAdminUser } from "@/lib/auth/session";
 import { shanghaiDateTimeInputToIso } from "@/lib/date-time";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
+import { isUuid } from "@/lib/uuid";
 import type { Json } from "@/types/database.generated";
 
 function shanghaiDateTimeField(message: string) {
@@ -59,6 +60,18 @@ function redirectWithMessage(
   redirect(
     searchParams.size > 0 ? `${pathname}?${searchParams.toString()}` : pathname,
   );
+}
+
+function requireAnnouncementId(rawAnnouncementId: string) {
+  const announcementId = rawAnnouncementId.trim();
+
+  if (!isUuid(announcementId)) {
+    redirectWithMessage("/admin/announcements", {
+      error: "公告标识无效。",
+    });
+  }
+
+  return announcementId;
 }
 
 async function logAnnouncementOperation(input: {
@@ -187,13 +200,9 @@ export async function saveAnnouncementDraftAction(formData: FormData) {
 
 export async function publishAnnouncementAction(formData: FormData) {
   const actor = await requireAdminUser();
-  const announcementId = stringField(formData, "announcementId");
-
-  if (!announcementId) {
-    redirectWithMessage("/admin/announcements", {
-      error: "缺少待发布的公告。",
-    });
-  }
+  const announcementId = requireAnnouncementId(
+    stringField(formData, "announcementId"),
+  );
 
   const admin = createAdminSupabaseClient();
   const { data: currentAnnouncement, error: currentAnnouncementError } = await admin
@@ -242,13 +251,9 @@ export async function publishAnnouncementAction(formData: FormData) {
 
 export async function archiveAnnouncementAction(formData: FormData) {
   const actor = await requireAdminUser();
-  const announcementId = stringField(formData, "announcementId");
-
-  if (!announcementId) {
-    redirectWithMessage("/admin/announcements", {
-      error: "缺少待归档的公告。",
-    });
-  }
+  const announcementId = requireAnnouncementId(
+    stringField(formData, "announcementId"),
+  );
 
   const admin = createAdminSupabaseClient();
   const { data: currentAnnouncement, error: currentAnnouncementError } = await admin

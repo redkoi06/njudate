@@ -3,7 +3,12 @@ import { redirect } from "next/navigation";
 import { RegisterForm } from "@/app/register/register-form";
 import { allowedEmailDomainsLabel } from "@/lib/auth/credentials";
 import { PublicShell } from "@/components/site-shell";
-import { ButtonLink, SectionHeader, SurfaceCard } from "@/components/site-ui";
+import {
+  ButtonLink,
+  FlashToast,
+  SectionHeader,
+  SurfaceCard,
+} from "@/components/site-ui";
 import { registerUserAction } from "@/features/app/actions";
 import { getRegistrationOpen } from "@/lib/auth/registration";
 import { getCurrentSessionHomePath, getOptionalSessionUser } from "@/lib/auth/session";
@@ -39,6 +44,7 @@ export default async function RegisterPage({
 
   return (
     <PublicShell>
+      <FlashToast message={hasSent ? null : error} />
       <section className="mx-auto max-w-5xl px-5 py-14 md:px-8">
         <div className="grid gap-6 lg:grid-cols-[1.08fr_0.92fr]">
           <SurfaceCard {...(hasSent ? { className: "flex h-full flex-col" } : {})}>
@@ -68,11 +74,6 @@ export default async function RegisterPage({
                   </p>
                 </div>
               </div>
-            ) : null}
-            {!hasSent && error ? (
-              <p className="mt-6 rounded-2xl border border-[color:var(--status-warning)]/20 bg-[color:var(--status-warning-bg)] px-4 py-3 text-sm text-[color:var(--status-warning)]">
-                {error}
-              </p>
             ) : null}
             {!hasSent ? (
               <RegisterForm action={registerUserAction} initialEmail={email} />

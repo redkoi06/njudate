@@ -3,6 +3,7 @@ import {
   Button,
   ButtonLink,
   EmptyState,
+  FlashToast,
   Field,
   SectionHeader,
   SelectField,
@@ -19,6 +20,7 @@ import {
   listAnnouncements,
 } from "@/features/admin/announcements/data";
 import { formatDateTime, formatDateTimeInputValue } from "@/lib/site";
+import { isUuid } from "@/lib/uuid";
 
 function getAnnouncementStatusBadgeTone(status: "draft" | "published" | "archived") {
   return status === "published" ? "success" : "soft";
@@ -51,20 +53,24 @@ export default async function AdminAnnouncementsPage({
     typeof resolvedSearchParams?.error === "string"
       ? resolvedSearchParams.error
       : "";
+  const hasValidEditId = !editId || isUuid(editId);
 
   const [announcements, editingAnnouncement] = await Promise.all([
     listAnnouncements(),
-    editId ? getAnnouncementForEdit(editId) : Promise.resolve(null),
+    hasValidEditId && editId
+      ? getAnnouncementForEdit(editId)
+      : Promise.resolve(null),
   ]);
   const canEditAnnouncement = editingAnnouncement?.status === "draft";
   const pageError =
-    error ||
+    (hasValidEditId ? error : "公告编辑链接无效。") ||
     (editId && editingAnnouncement && !canEditAnnouncement
       ? NON_DRAFT_EDIT_ERROR_MESSAGE
       : "");
 
   return (
     <div className="grid gap-6">
+      <FlashToast message={pageError} />
       <SurfaceCard>
         <SectionHeader
           eyebrow="公告后台"
@@ -78,11 +84,6 @@ export default async function AdminAnnouncementsPage({
             ) : null
           }
         />
-        {pageError ? (
-          <div className="mt-6 rounded-2xl border border-[color:var(--status-warning)]/20 bg-[color:var(--status-warning-bg)] px-4 py-3 text-sm text-[color:var(--status-warning)]">
-            {pageError}
-          </div>
-        ) : null}
         <form action={saveAnnouncementDraftAction} className="mt-8 grid gap-5">
           {canEditAnnouncement ? (
             <input

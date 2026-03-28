@@ -1,9 +1,10 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import {
   Badge,
   Button,
   ButtonLink,
+  FlashToast,
   SectionHeader,
   SurfaceCard,
 } from "@/components/site-ui";
@@ -17,6 +18,7 @@ import {
 } from "@/features/admin/questionnaires/data";
 import { QuestionnaireSections } from "@/features/app/questionnaire-sections";
 import { formatDateTime } from "@/lib/site";
+import { isUuid } from "@/lib/uuid";
 
 export default async function AdminQuestionnaireVersionDetailPage({
   params,
@@ -26,6 +28,11 @@ export default async function AdminQuestionnaireVersionDetailPage({
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const resolvedParams = await params;
+
+  if (!isUuid(resolvedParams.versionId)) {
+    redirect("/admin/questionnaires?error=问卷版本链接无效。");
+  }
+
   const [version, gate, resolvedSearchParams] = await Promise.all([
     getQuestionnaireVersionDetail(resolvedParams.versionId),
     getQuestionnairePublishingGate(),
@@ -43,6 +50,7 @@ export default async function AdminQuestionnaireVersionDetailPage({
 
   return (
     <div className="grid gap-6">
+      <FlashToast message={error} />
       <SurfaceCard>
         <SectionHeader
           eyebrow={`问卷版本 V${version.versionNo}`}
@@ -59,11 +67,6 @@ export default async function AdminQuestionnaireVersionDetailPage({
             </div>
           }
         />
-        {error ? (
-          <div className="mt-6 rounded-2xl border border-[color:var(--status-warning)]/20 bg-[color:var(--status-warning-bg)] px-4 py-3 text-sm text-[color:var(--status-warning)]">
-            {error}
-          </div>
-        ) : null}
         <div className="mt-8 grid gap-4 md:grid-cols-2">
           <div className="border-border rounded-2xl border p-4">
             <p className="text-muted-foreground text-xs tracking-[0.2em]">创建时间</p>

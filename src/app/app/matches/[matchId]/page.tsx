@@ -1,17 +1,33 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
-import { Button, SectionHeader, SurfaceCard } from "@/components/site-ui";
+import { Button, FlashToast, SectionHeader, SurfaceCard } from "@/components/site-ui";
 import { triggerMatchContactAction } from "@/features/app/actions";
 import { getMatchDetail } from "@/features/app/data";
 import { requireAppUser } from "@/lib/auth/session";
+import { isUuid } from "@/lib/uuid";
 import { getMatchStatusLabel } from "@/lib/site";
 
 export default async function MatchDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ matchId: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const [{ matchId }, user] = await Promise.all([params, requireAppUser()]);
+  const [{ matchId }, user, resolvedSearchParams] = await Promise.all([
+    params,
+    requireAppUser(),
+    searchParams,
+  ]);
+
+  if (!isUuid(matchId)) {
+    redirect("/app/matches?error=匹配结果链接无效。");
+  }
+
+  const error =
+    typeof resolvedSearchParams?.error === "string"
+      ? resolvedSearchParams.error
+      : "";
   const detail = await getMatchDetail(user.id, matchId);
 
   if (!detail) {
@@ -30,6 +46,7 @@ export default async function MatchDetailPage({
 
   return (
     <div className="grid gap-6">
+      <FlashToast message={error} />
       <SurfaceCard>
         <SectionHeader
           eyebrow={detail.batchLabel}

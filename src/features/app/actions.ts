@@ -24,6 +24,7 @@ import { sendTransactionalEmail } from "@/lib/email/send";
 import { getPublicEnv } from "@/lib/env/client";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { isUuid } from "@/lib/uuid";
 import type { Json } from "@/types/database.generated";
 
 function buildProfileSchema() {
@@ -776,8 +777,21 @@ export async function deleteOwnAccountAction() {
 
 export async function triggerMatchContactAction(formData: FormData) {
   const { supabase, user } = await requireAuthenticatedClient();
-  const matchPairId = stringField(formData, "matchPairId");
-  const matchResultId = stringField(formData, "matchResultId");
+  const matchPairId = stringField(formData, "matchPairId").trim();
+  const matchResultId = stringField(formData, "matchResultId").trim();
+
+  if (!isUuid(matchResultId)) {
+    redirectWithSearchParams("/app/matches", {
+      error: "匹配结果链接无效。",
+    });
+  }
+
+  if (!isUuid(matchPairId)) {
+    redirectWithSearchParams(`/app/matches/${matchResultId}`, {
+      error: "匹配联系信息无效。",
+    });
+  }
+
   const roundNo = await getPublishedMatchRoundNo({
     matchResultId,
     userId: user.id,
@@ -822,7 +836,13 @@ export async function triggerMatchContactAction(formData: FormData) {
 
 export async function markMatchViewedAction(formData: FormData) {
   const { supabase } = await requireAuthenticatedClient();
-  const matchResultId = stringField(formData, "matchResultId");
+  const matchResultId = stringField(formData, "matchResultId").trim();
+
+  if (!isUuid(matchResultId)) {
+    redirectWithSearchParams("/app/matches", {
+      error: "匹配结果链接无效。",
+    });
+  }
 
   const { error } = await supabase.rpc("mark_match_result_viewed", {
     p_match_result_id: matchResultId,
@@ -839,7 +859,13 @@ export async function markMatchViewedAction(formData: FormData) {
 
 export async function markNotificationReadAction(formData: FormData) {
   const { supabase } = await requireAuthenticatedClient();
-  const notificationId = stringField(formData, "notificationId");
+  const notificationId = stringField(formData, "notificationId").trim();
+
+  if (!isUuid(notificationId)) {
+    redirectWithSearchParams("/app/dashboard", {
+      error: "通知链接无效。",
+    });
+  }
 
   const { error } = await supabase.rpc("mark_notification_read", {
     p_notification_id: notificationId,

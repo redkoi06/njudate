@@ -1,8 +1,9 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import {
   Button,
   ButtonLink,
+  FlashToast,
   Field,
   SectionHeader,
   SelectField,
@@ -22,6 +23,7 @@ import {
   listPublishedQuestionnaireOptions,
 } from "@/features/admin/batches/data";
 import { formatDateTime, formatDateTimeInputValue } from "@/lib/site";
+import { isUuid } from "@/lib/uuid";
 
 function BatchMetric({ label, value }: { label: string; value: string }) {
   return (
@@ -40,6 +42,11 @@ export default async function AdminBatchDetailPage({
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const resolvedParams = await params;
+
+  if (!isUuid(resolvedParams.batchId)) {
+    redirect("/admin/batches?error=批次链接无效。");
+  }
+
   const [batch, publishedQuestionnaires, resolvedSearchParams] =
     await Promise.all([
       getBatchDetail(resolvedParams.batchId),
@@ -58,6 +65,7 @@ export default async function AdminBatchDetailPage({
 
   return (
     <div className="grid gap-6">
+      <FlashToast message={error} />
       <SurfaceCard>
         <SectionHeader
           eyebrow={`批次详情 · 第 ${batch.roundNo} 轮`}
@@ -73,11 +81,6 @@ export default async function AdminBatchDetailPage({
             </ButtonLink>
           }
         />
-        {error ? (
-          <div className="mt-6 rounded-2xl border border-[color:var(--status-warning)]/20 bg-[color:var(--status-warning-bg)] px-4 py-3 text-sm text-[color:var(--status-warning)]">
-            {error}
-          </div>
-        ) : null}
         {batch.lastErrorMessage ? (
           <p className="mt-6 rounded-2xl border border-[color:var(--status-warning)]/20 bg-[color:var(--status-warning-bg)] px-4 py-3 text-sm text-[color:var(--status-warning)]">
             最近一次失败原因：{batch.lastErrorMessage}

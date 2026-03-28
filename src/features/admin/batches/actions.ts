@@ -19,6 +19,7 @@ import {
   hasReachedBatchTime,
 } from "@/lib/matching/lifecycle-core";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
+import { isUuid } from "@/lib/uuid";
 import type { Json } from "@/types/database.generated";
 
 function shanghaiDateTimeField(message: string) {
@@ -85,6 +86,18 @@ function redirectWithMessage(
       ? `${basePathname}?${searchParams.toString()}${hashSuffix}`
       : `${basePathname}${hashSuffix}`,
   );
+}
+
+function requireBatchId(rawBatchId: string) {
+  const batchId = rawBatchId.trim();
+
+  if (!isUuid(batchId)) {
+    redirectWithMessage("/admin/batches", {
+      error: "批次标识无效。",
+    });
+  }
+
+  return batchId;
 }
 
 async function logBatchOperation(input: {
@@ -233,13 +246,7 @@ export async function createBatchAction(formData: FormData) {
 
 export async function updateBatchAction(formData: FormData) {
   const actor = await requireAdminUser();
-  const batchId = stringField(formData, "batchId");
-
-  if (!batchId) {
-    redirectWithMessage("/admin/batches", {
-      error: "缺少待编辑的批次。",
-    });
-  }
+  const batchId = requireBatchId(stringField(formData, "batchId"));
 
   const payload = (() => {
     try {
@@ -311,14 +318,8 @@ export async function updateBatchAction(formData: FormData) {
 
 export async function openBatchSignupAction(formData: FormData) {
   await requireAdminUser();
-  const batchId = stringField(formData, "batchId");
+  const batchId = requireBatchId(stringField(formData, "batchId"));
   const admin = createAdminSupabaseClient();
-
-  if (!batchId) {
-    redirectWithMessage("/admin/batches", {
-      error: "缺少待开放的批次。",
-    });
-  }
 
   const { data: batch, error: batchError } = await admin
     .from("match_batches")
@@ -359,13 +360,7 @@ export async function openBatchSignupAction(formData: FormData) {
 }
 
 export async function lockBatchAction(formData: FormData) {
-  const batchId = stringField(formData, "batchId");
-
-  if (!batchId) {
-    redirectWithMessage("/admin/batches", {
-      error: "缺少待锁定的批次。",
-    });
-  }
+  const batchId = requireBatchId(stringField(formData, "batchId"));
 
   await requireAdminUser();
   const admin = createAdminSupabaseClient();
@@ -399,14 +394,8 @@ export async function lockBatchAction(formData: FormData) {
 }
 
 export async function runBatchNowAction(formData: FormData) {
-  const batchId = stringField(formData, "batchId");
+  const batchId = requireBatchId(stringField(formData, "batchId"));
   const admin = createAdminSupabaseClient();
-
-  if (!batchId) {
-    redirectWithMessage("/admin/batches", {
-      error: "缺少待执行的批次。",
-    });
-  }
 
   await requireAdminUser();
 
@@ -472,14 +461,8 @@ export async function runBatchNowAction(formData: FormData) {
 }
 
 export async function publishBatchNowAction(formData: FormData) {
-  const batchId = stringField(formData, "batchId");
+  const batchId = requireBatchId(stringField(formData, "batchId"));
   const admin = createAdminSupabaseClient();
-
-  if (!batchId) {
-    redirectWithMessage("/admin/batches", {
-      error: "缺少待发布的批次。",
-    });
-  }
 
   await requireAdminUser();
 
@@ -526,14 +509,8 @@ export async function publishBatchNowAction(formData: FormData) {
 }
 
 export async function resetInterruptedBatchAction(formData: FormData) {
-  const batchId = stringField(formData, "batchId");
+  const batchId = requireBatchId(stringField(formData, "batchId"));
   const admin = createAdminSupabaseClient();
-
-  if (!batchId) {
-    redirectWithMessage("/admin/batches", {
-      error: "缺少待重置的批次。",
-    });
-  }
 
   await requireAdminUser();
 

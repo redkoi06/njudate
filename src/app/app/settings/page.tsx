@@ -1,4 +1,4 @@
-import { SectionHeader, SurfaceCard } from "@/components/site-ui";
+import { FlashToast, SectionHeader, SurfaceCard } from "@/components/site-ui";
 import { saveSettingsAction } from "@/features/app/actions";
 import { getSettings } from "@/features/app/data";
 import { requireAppUser } from "@/lib/auth/session";
@@ -26,6 +26,7 @@ export default async function SettingsPage({
 
   return (
     <div className="grid gap-6">
+      <FlashToast message={accountError} />
       <SurfaceCard>
         <SectionHeader
           eyebrow="设置"
@@ -43,9 +44,7 @@ export default async function SettingsPage({
 
       <SurfaceCard>
         <h2 className="text-2xl">账号安全</h2>
-        <DeleteAccountPanel
-          {...(accountError ? { errorMessage: accountError } : {})}
-        />
+        <DeleteAccountPanel />
       </SurfaceCard>
     </div>
   );
