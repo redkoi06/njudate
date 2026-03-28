@@ -13,7 +13,7 @@ export default async function ProfilePage() {
     <SurfaceCard>
       <SectionHeader
         eyebrow="基本资料"
-        title="维护当前参与匹配所需的基础信息"
+        title="完善你的基本信息"
         description="请严格按规定填写昵称、性别、年级、院系、所在校区和出生年份。资料更新会影响后续轮次报名和结果展示。"
       />
       <ProfileForm
