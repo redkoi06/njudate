@@ -147,7 +147,11 @@ export default async function AdminBatchDetailPage({
         <h2 className="text-2xl">批次编辑</h2>
         {batch.status === "draft" ? (
           <>
-            <form action={updateBatchAction} className="mt-6 grid gap-5">
+            <form
+              action={updateBatchAction}
+              className="mt-6 grid gap-5"
+              noValidate
+            >
               <input type="hidden" name="batchId" value={batch.id} />
               <div className="grid gap-5 lg:grid-cols-2">
                 <SelectField

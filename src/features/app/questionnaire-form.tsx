@@ -200,6 +200,7 @@ export function QuestionnaireForm({
     <form
       ref={formRef}
       className="mt-8 grid gap-8"
+      noValidate
       onChange={syncFormState}
       onInput={syncFormState}
     >

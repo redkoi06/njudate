@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
   canSubmitSignUpForm,
   getAuthErrorMessage,
+  getResetPasswordFieldErrors,
   getSignUpFieldErrors,
+  resetPasswordSchema,
   signInSchema,
   signUpSchema,
 } from "@/lib/auth/credentials";
@@ -74,6 +76,20 @@ describe("signUpSchema", () => {
   });
 });
 
+describe("resetPasswordSchema", () => {
+  it("rejects mismatched confirmation passwords", () => {
+    const result = resetPasswordSchema.safeParse({
+      password: "secret1",
+      confirmPassword: "secret2",
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0]?.message).toBe("两次输入的密码不一致");
+    }
+  });
+});
+
 describe("canSubmitSignUpForm", () => {
   it("returns false for unsupported email domains", () => {
     expect(
@@ -135,6 +151,30 @@ describe("getSignUpFieldErrors", () => {
     expect(
       getSignUpFieldErrors({
         email: "student@smail.nju.edu.cn",
+        password: "secret1",
+        confirmPassword: "secret2",
+      }),
+    ).toMatchObject({
+      confirmPassword: "两次输入的密码不一致",
+    });
+  });
+});
+
+describe("getResetPasswordFieldErrors", () => {
+  it("returns a password error when the password is shorter than 6 characters", () => {
+    expect(
+      getResetPasswordFieldErrors({
+        password: "12345",
+        confirmPassword: "12345",
+      }),
+    ).toMatchObject({
+      password: "密码至少 6 位",
+    });
+  });
+
+  it("returns a confirmation error when the passwords do not match", () => {
+    expect(
+      getResetPasswordFieldErrors({
         password: "secret1",
         confirmPassword: "secret2",
       }),

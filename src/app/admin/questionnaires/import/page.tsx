@@ -36,7 +36,11 @@ export default async function AdminQuestionnaireImportPage({
           当前不可导入：{gate.reason}
         </p>
       ) : null}
-      <form action={importQuestionnaireDefinitionAction} className="mt-8 grid gap-5">
+      <form
+        action={importQuestionnaireDefinitionAction}
+        className="mt-8 grid gap-5"
+        noValidate
+      >
         <TextArea
           name="definitionJson"
           label="问卷 JSON"

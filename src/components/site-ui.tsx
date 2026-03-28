@@ -11,6 +11,7 @@ import type {
   TextareaHTMLAttributes,
 } from "react";
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 import brandMark from "../../icon/icon.png";
 import { cn } from "@/lib/utils";
@@ -189,6 +190,47 @@ export function FieldErrorMessage({
   );
 }
 
+const FLASH_TOAST_SCROLL_KEY = "flash-toast-scroll-position";
+
+type FlashToastScrollPosition = {
+  hash: string;
+  pathname: string;
+  x: number;
+  y: number;
+  timestamp: number;
+};
+
+function readFlashToastScrollPosition(): FlashToastScrollPosition | null {
+  const rawValue = window.sessionStorage.getItem(FLASH_TOAST_SCROLL_KEY);
+  if (!rawValue) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(rawValue) as Partial<FlashToastScrollPosition>;
+
+    if (
+      typeof parsed.hash !== "string" ||
+      typeof parsed.pathname !== "string" ||
+      typeof parsed.x !== "number" ||
+      typeof parsed.y !== "number" ||
+      typeof parsed.timestamp !== "number"
+    ) {
+      return null;
+    }
+
+    return {
+      hash: parsed.hash,
+      pathname: parsed.pathname,
+      x: parsed.x,
+      y: parsed.y,
+      timestamp: parsed.timestamp,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export function FlashToast({
   message,
   durationMs = 3000,
@@ -196,7 +238,30 @@ export function FlashToast({
   message?: string | null | undefined;
   durationMs?: number;
 }) {
+  const [mounted, setMounted] = useState(false);
   const [visible, setVisible] = useState(Boolean(message));
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    function handleSubmit() {
+      window.sessionStorage.setItem(
+        FLASH_TOAST_SCROLL_KEY,
+        JSON.stringify({
+          hash: window.location.hash,
+          pathname: window.location.pathname,
+          x: window.scrollX,
+          y: window.scrollY,
+          timestamp: Date.now(),
+        } satisfies FlashToastScrollPosition),
+      );
+    }
+
+    document.addEventListener("submit", handleSubmit, true);
+    return () => document.removeEventListener("submit", handleSubmit, true);
+  }, []);
 
   useEffect(() => {
     if (!message) {
@@ -214,11 +279,35 @@ export function FlashToast({
     };
   }, [durationMs, message]);
 
-  if (!message) {
+  useEffect(() => {
+    const savedPosition = readFlashToastScrollPosition();
+    if (!savedPosition) {
+      return;
+    }
+
+    if (
+      !message ||
+      savedPosition.hash !== window.location.hash ||
+      savedPosition.pathname !== window.location.pathname ||
+      Date.now() - savedPosition.timestamp > 15_000
+    ) {
+      window.sessionStorage.removeItem(FLASH_TOAST_SCROLL_KEY);
+      return;
+    }
+
+    const frameId = window.requestAnimationFrame(() => {
+      window.scrollTo(savedPosition.x, savedPosition.y);
+      window.sessionStorage.removeItem(FLASH_TOAST_SCROLL_KEY);
+    });
+
+    return () => window.cancelAnimationFrame(frameId);
+  }, [message]);
+
+  if (!mounted || !message) {
     return null;
   }
 
-  return (
+  return createPortal(
     <div
       aria-live="polite"
       className="pointer-events-none fixed inset-x-0 top-5 z-[120] flex justify-center px-4 sm:px-6"
@@ -226,18 +315,19 @@ export function FlashToast({
       <div
         role="alert"
         className={cn(
-          "pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-[24px] border border-[color:var(--status-warning)]/25 bg-[color:rgba(255,255,255,0.96)] px-4 py-3 text-sm leading-6 text-[color:var(--status-warning)] shadow-[0_20px_44px_rgba(31,24,24,0.12)] backdrop-blur transition duration-300",
+          "pointer-events-auto flex w-full max-w-sm items-center gap-3 rounded-[24px] border border-[color:var(--status-warning)]/25 bg-[color:rgba(255,255,255,0.96)] px-4 py-3 text-sm leading-6 text-[color:var(--status-warning)] shadow-[0_20px_44px_rgba(31,24,24,0.12)] backdrop-blur transition duration-300",
           visible
             ? "translate-y-0 opacity-100"
             : "-translate-y-2 opacity-0",
         )}
       >
-        <span className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-[color:var(--status-warning-bg)] text-[color:var(--status-warning)] shadow-[0_8px_18px_rgba(160,122,58,0.14)]">
+        <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-[color:var(--status-warning-bg)] text-[color:var(--status-warning)] shadow-[0_8px_18px_rgba(160,122,58,0.14)]">
           <CircleAlert className="size-4" />
         </span>
         <span className="min-w-0 flex-1">{message}</span>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

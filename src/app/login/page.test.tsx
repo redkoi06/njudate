@@ -60,6 +60,9 @@ describe("LoginPage", () => {
       "href",
       "/register",
     );
+    expect(
+      screen.queryByText("忘记密码？请使用注册时的校园邮箱联系我们。"),
+    ).not.toBeInTheDocument();
   });
 
   it("renders a non-clickable register entry when registration is closed", async () => {

@@ -7,9 +7,16 @@ import { getPublicEnv } from "@/lib/env/client";
 import type { Database } from "@/types/database.generated";
 
 const emailConfirmationType = "email";
+const passwordRecoveryType = "recovery";
 
 function createRegisterErrorUrl(message: string, siteUrl: string) {
   const url = new URL("/register", siteUrl);
+  url.searchParams.set("error", message);
+  return url;
+}
+
+function createLoginErrorUrl(message: string, siteUrl: string) {
+  const url = new URL("/login", siteUrl);
   url.searchParams.set("error", message);
   return url;
 }
@@ -30,9 +37,13 @@ function redirectWithExistingCookies(
 export async function GET(request: NextRequest) {
   const tokenHash = request.nextUrl.searchParams.get("token_hash");
   const type = request.nextUrl.searchParams.get("type");
+  const next = request.nextUrl.searchParams.get("next");
   const env = getPublicEnv();
 
-  if (!tokenHash || type !== emailConfirmationType) {
+  if (
+    !tokenHash ||
+    (type !== emailConfirmationType && type !== passwordRecoveryType)
+  ) {
     return NextResponse.redirect(
       createRegisterErrorUrl(
         "确认链接无效或类型不正确，请重新注册。",
@@ -45,7 +56,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", env.NEXT_PUBLIC_SITE_URL));
   }
 
-  let response = NextResponse.redirect(new URL("/app", env.NEXT_PUBLIC_SITE_URL));
+  const targetPath =
+    type === passwordRecoveryType
+      ? next && next.startsWith("/") && !next.startsWith("//")
+        ? next
+        : "/reset-password"
+      : "/app";
+  let response = NextResponse.redirect(
+    new URL(targetPath, env.NEXT_PUBLIC_SITE_URL),
+  );
 
   const supabase = createServerClient<Database>(
     env.NEXT_PUBLIC_SUPABASE_URL,
@@ -70,16 +89,25 @@ export async function GET(request: NextRequest) {
 
   const { error } = await supabase.auth.verifyOtp({
     token_hash: tokenHash,
-    type: emailConfirmationType,
+    type,
   });
 
   if (error) {
     return NextResponse.redirect(
-      createRegisterErrorUrl(
-        "确认链接无效或已过期，请重新注册。",
-        env.NEXT_PUBLIC_SITE_URL,
-      ),
+      type === passwordRecoveryType
+        ? createLoginErrorUrl(
+            "重置链接无效或已过期，请重新发送。",
+            env.NEXT_PUBLIC_SITE_URL,
+          )
+        : createRegisterErrorUrl(
+            "确认链接无效或已过期，请重新注册。",
+            env.NEXT_PUBLIC_SITE_URL,
+          ),
     );
+  }
+
+  if (type === passwordRecoveryType) {
+    return response;
   }
 
   const { error: provisionError } = await supabase.rpc(

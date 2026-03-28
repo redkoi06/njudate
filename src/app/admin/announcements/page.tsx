@@ -84,7 +84,11 @@ export default async function AdminAnnouncementsPage({
             ) : null
           }
         />
-        <form action={saveAnnouncementDraftAction} className="mt-8 grid gap-5">
+        <form
+          action={saveAnnouncementDraftAction}
+          className="mt-8 grid gap-5"
+          noValidate
+        >
           {canEditAnnouncement ? (
             <input
               type="hidden"

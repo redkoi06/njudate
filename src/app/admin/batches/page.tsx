@@ -44,7 +44,11 @@ export default async function AdminBatchesPage({
             title="创建并推进每周批次"
             description="系统同一时间只允许存在一个当前轮次。批次编号、code 和展示轮次号都由系统自动递增生成，批次会按时间自动流转，管理员仅做补救和补执行。"
           />
-          <form action={createBatchAction} className="mt-8 grid gap-5">
+          <form
+            action={createBatchAction}
+            className="mt-8 grid gap-5"
+            noValidate
+          >
             <div className="grid gap-5 lg:grid-cols-2">
               <SelectField
                 name="questionnaireVersionId"

@@ -50,13 +50,39 @@ export const signUpSchema = z
   });
 
 const signUpFieldNames = ["email", "password", "confirmPassword"] as const;
+const resetPasswordFieldNames = ["password", "confirmPassword"] as const;
 
 type SignUpFieldName = (typeof signUpFieldNames)[number];
+type ResetPasswordFieldName = (typeof resetPasswordFieldNames)[number];
 
 export type SignUpFieldErrors = Partial<Record<SignUpFieldName, string>>;
+export type ResetPasswordFieldErrors = Partial<
+  Record<ResetPasswordFieldName, string>
+>;
+
+export const resetPasswordSchema = z
+  .object({
+    password: passwordSchema,
+    confirmPassword: z.string().trim().min(1, "请再次输入密码"),
+  })
+  .superRefine((value, context) => {
+    if (value.password !== value.confirmPassword) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "两次输入的密码不一致",
+        path: ["confirmPassword"],
+      });
+    }
+  });
 
 function isSignUpFieldName(value: unknown): value is SignUpFieldName {
   return signUpFieldNames.some((fieldName) => fieldName === value);
+}
+
+function isResetPasswordFieldName(
+  value: unknown,
+): value is ResetPasswordFieldName {
+  return resetPasswordFieldNames.some((fieldName) => fieldName === value);
 }
 
 export function getSignUpFieldErrors(input: {
@@ -76,6 +102,31 @@ export function getSignUpFieldErrors(input: {
     const [fieldName] = issue.path;
 
     if (!isSignUpFieldName(fieldName) || fieldErrors[fieldName]) {
+      continue;
+    }
+
+    fieldErrors[fieldName] = issue.message;
+  }
+
+  return fieldErrors;
+}
+
+export function getResetPasswordFieldErrors(input: {
+  password: string;
+  confirmPassword: string;
+}): ResetPasswordFieldErrors {
+  const result = resetPasswordSchema.safeParse(input);
+
+  if (result.success) {
+    return {};
+  }
+
+  const fieldErrors: ResetPasswordFieldErrors = {};
+
+  for (const issue of result.error.issues) {
+    const [fieldName] = issue.path;
+
+    if (!isResetPasswordFieldName(fieldName) || fieldErrors[fieldName]) {
       continue;
     }
 

@@ -1,49 +1,20 @@
 import Image from "next/image";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 
 import loginBrandIcon from "../../../icon/icon.png";
-import { FlashToast } from "@/components/site-ui";
-import { signInWithPasswordAction } from "@/features/app/actions";
-import { getCurrentSessionHomePath, getOptionalSessionUser } from "@/lib/auth/session";
-import { getRegistrationOpen } from "@/lib/auth/registration";
 import { allowedEmailDomainsLabel } from "@/lib/auth/credentials";
 
-import { LoginForm } from "./login-form";
+import { ResetPasswordForm } from "./reset-password-form";
 
 const LOGIN_HERO_IMAGE = "/images/photos/photo_1.jpg";
 
-export default async function LoginPage({
-  searchParams,
-}: {
-  searchParams?: Promise<Record<string, string | string[] | undefined>>;
-}) {
-  const [user, registrationOpen, resolvedSearchParams] = await Promise.all([
-    getOptionalSessionUser(),
-    getRegistrationOpen(),
-    searchParams,
-  ]);
-
-  if (user) {
-    redirect(await getCurrentSessionHomePath());
-  }
-
-  const email =
-    typeof resolvedSearchParams?.email === "string"
-      ? resolvedSearchParams.email
-      : "";
-  const error =
-    typeof resolvedSearchParams?.error === "string"
-      ? resolvedSearchParams.error
-      : "";
-
+export default function ResetPasswordPage() {
   return (
     <div className="grid min-h-screen bg-[linear-gradient(180deg,#f8f3ef_0%,#fffdfb_100%)] lg:grid-cols-[minmax(0,1.08fr)_minmax(440px,0.92fr)]">
-      <FlashToast message={error} />
       <aside className="relative min-h-[320px] overflow-hidden lg:min-h-screen">
         <Image
           src={LOGIN_HERO_IMAGE}
-          alt="NJU Date 登录页展示图"
+          alt="NJU Date 重置密码页展示图"
           fill
           loading="eager"
           sizes="(min-width: 1024px) 56vw, 100vw"
@@ -75,12 +46,10 @@ export default async function LoginPage({
               NJU CAMPUS NETWALKING
             </p>
             <h1 className="mt-5 text-4xl leading-[1.18] text-white sm:text-5xl lg:text-[4.2rem]">
-              让两个有趣的灵魂相遇。
+              重置账户密码
             </h1>
             <p className="mt-6 max-w-md text-[0.98rem] leading-8 text-[rgba(255,245,239,0.9)] sm:text-[1.06rem]">
-              <span className="font-serif italic tracking-[0.035em] drop-shadow-[0_8px_24px_rgba(14,8,9,0.28)]">
-                Not just dating tools, but connect the dots.
-              </span>
+              请在当前页面设置新的登录密码。完成后，系统会直接带你回到站内。
             </p>
             <p className="mt-6 font-serif text-base tracking-[0.14em] text-[rgba(255,230,211,0.92)] italic sm:text-lg">
               for {allowedEmailDomainsLabel}
@@ -89,24 +58,19 @@ export default async function LoginPage({
         </div>
       </aside>
 
-      <main className="flex items-start justify-center bg-[rgba(255,252,250,0.92)] px-6 py-10 sm:px-8 sm:py-12 lg:px-10 lg:py-14">
+      <main className="flex items-center justify-center bg-[rgba(255,252,250,0.92)] px-6 py-10 sm:px-8 lg:px-10 lg:py-12">
         <div className="w-full max-w-md">
           <p className="text-sm tracking-[0.22em] text-[color:var(--wine-medium)]">
             NJU Date
           </p>
           <h2 className="mt-6 text-4xl leading-[1.24] text-[color:var(--wine-deep)]">
-            静候君至
+            重置密码
           </h2>
           <p className="text-secondary-foreground/82 mt-4 text-sm leading-7 sm:text-base">
-            使用你的 {allowedEmailDomainsLabel}{" "}
-            邮箱和密码登录。首次使用请先注册并完成邮箱确认。
+            输入新的登录密码后即可继续访问你的账号。
           </p>
 
-          <LoginForm
-            action={signInWithPasswordAction}
-            initialEmail={email}
-            registrationOpen={registrationOpen}
-          />
+          <ResetPasswordForm />
         </div>
       </main>
     </div>

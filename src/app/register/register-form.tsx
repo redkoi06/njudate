@@ -47,6 +47,7 @@ export function RegisterForm({
     <form
       action={action}
       className="mt-8 grid gap-5"
+      noValidate
     >
       <Field
         name="email"

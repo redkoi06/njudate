@@ -108,4 +108,60 @@ describe("auth confirm route", () => {
       "session-token",
     );
   });
+
+  it("accepts recovery links and redirects to the reset password page", async () => {
+    getRegistrationOpenMock.mockResolvedValue(true);
+
+    const verifyOtpMock = vi.fn(async ({ type }: { type: string }) => {
+      expect(type).toBe("recovery");
+
+      return { error: null };
+    });
+    const rpcMock = vi.fn();
+
+    createServerClientMock.mockImplementation(() => ({
+      auth: {
+        verifyOtp: verifyOtpMock,
+      },
+      rpc: rpcMock,
+    }));
+
+    const request = new NextRequest(
+      "http://localhost:3000/auth/confirm?token_hash=test-token&type=recovery&next=/reset-password",
+    );
+
+    const response = await GET(request);
+
+    expect(response.headers.get("location")).toBe(
+      "http://localhost:3000/reset-password",
+    );
+    expect(verifyOtpMock).toHaveBeenCalledWith({
+      token_hash: "test-token",
+      type: "recovery",
+    });
+    expect(rpcMock).not.toHaveBeenCalled();
+  });
+
+  it("redirects recovery verification failures back to login", async () => {
+    getRegistrationOpenMock.mockResolvedValue(true);
+
+    createServerClientMock.mockImplementation(() => ({
+      auth: {
+        verifyOtp: vi.fn(async () => ({
+          error: new Error("expired"),
+        })),
+      },
+      rpc: vi.fn(),
+    }));
+
+    const request = new NextRequest(
+      "http://localhost:3000/auth/confirm?token_hash=test-token&type=recovery&next=/reset-password",
+    );
+
+    const response = await GET(request);
+
+    expect(response.headers.get("location")).toBe(
+      "http://localhost:3000/login?error=%E9%87%8D%E7%BD%AE%E9%93%BE%E6%8E%A5%E6%97%A0%E6%95%88%E6%88%96%E5%B7%B2%E8%BF%87%E6%9C%9F%EF%BC%8C%E8%AF%B7%E9%87%8D%E6%96%B0%E5%8F%91%E9%80%81%E3%80%82",
+    );
+  });
 });
