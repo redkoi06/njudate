@@ -1,4 +1,4 @@
-import { FlashToast, SectionHeader, SurfaceCard } from "@/components/site-ui";
+import { SectionHeader, SurfaceCard } from "@/components/site-ui";
 import { saveSettingsAction } from "@/features/app/actions";
 import { getSettings } from "@/features/app/data";
 import { requireAppUser } from "@/lib/auth/session";
@@ -6,27 +6,12 @@ import { requireAppUser } from "@/lib/auth/session";
 import { DeleteAccountPanel } from "./delete-account-panel";
 import { SettingsForm } from "./settings-form";
 
-function getSearchParamValue(
-  value: string | string[] | undefined,
-): string | undefined {
-  return Array.isArray(value) ? value[0] : value;
-}
-
-export default async function SettingsPage({
-  searchParams,
-}: {
-  searchParams?: Promise<Record<string, string | string[] | undefined>>;
-}) {
-  const [user, resolvedSearchParams] = await Promise.all([
-    requireAppUser(),
-    searchParams,
-  ]);
+export default async function SettingsPage() {
+  const user = await requireAppUser();
   const settings = await getSettings(user.id);
-  const accountError = getSearchParamValue(resolvedSearchParams?.accountError);
 
   return (
     <div className="grid gap-6">
-      <FlashToast message={accountError} />
       <SurfaceCard>
         <SectionHeader
           eyebrow="设置"
