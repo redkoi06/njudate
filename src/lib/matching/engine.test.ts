@@ -8,7 +8,7 @@ import {
 } from "@/lib/matching/engine";
 import type { MatchingPolicy } from "@/lib/matching/policy";
 
-const matchingPolicy: MatchingPolicy = {
+const defaultMatchingPolicy: MatchingPolicy = {
   minimumPairScore: 60,
   profileFilters: [
     {
@@ -37,14 +37,54 @@ const matchingPolicy: MatchingPolicy = {
   },
 };
 
-const questions: MatchingQuestion[] = [
+const ageOnlyPolicy: MatchingPolicy = {
+  minimumPairScore: 0,
+  profileFilters: [
+    {
+      field: "gender",
+      mode: "opposite_required",
+    },
+  ],
+  profileScoring: [],
+  questionScoring: {
+    singleDefaultWeight: 1,
+    multipleDefaultWeight: 1.2,
+    scaleDefaultWeight: 1.5,
+    minimumComparableQuestions: 1,
+  },
+};
+
+const campusScoringPolicy: MatchingPolicy = {
+  minimumPairScore: 0,
+  profileFilters: [
+    {
+      field: "gender",
+      mode: "opposite_required",
+    },
+  ],
+  profileScoring: [
+    {
+      field: "campus",
+      mode: "same_bonus",
+      weight: 10,
+    },
+  ],
+  questionScoring: {
+    singleDefaultWeight: 1,
+    multipleDefaultWeight: 1.2,
+    scaleDefaultWeight: 1.5,
+    minimumComparableQuestions: 1,
+  },
+};
+
+const standardQuestions: MatchingQuestion[] = [
   {
     kind: "single",
     options: [
-      { id: "slow", label: "慢节奏" },
-      { id: "fast", label: "快节奏" },
+      { id: "slow", label: "Slow" },
+      { id: "fast", label: "Fast" },
     ],
-    prompt: "生活节奏",
+    prompt: "Life pace",
     questionCode: "q-single",
     scaleMax: null,
     scaleMin: null,
@@ -53,11 +93,11 @@ const questions: MatchingQuestion[] = [
   {
     kind: "multiple",
     options: [
-      { id: "read", label: "阅读" },
-      { id: "walk", label: "散步" },
-      { id: "sports", label: "运动" },
+      { id: "read", label: "Read" },
+      { id: "walk", label: "Walk" },
+      { id: "sports", label: "Sports" },
     ],
-    prompt: "周末偏好",
+    prompt: "Weekend preference",
     questionCode: "q-multiple",
     scaleMax: null,
     scaleMin: null,
@@ -66,7 +106,7 @@ const questions: MatchingQuestion[] = [
   {
     kind: "scale",
     options: [],
-    prompt: "见面频率",
+    prompt: "Meet frequency",
     questionCode: "q-scale",
     scaleMax: 5,
     scaleMin: 1,
@@ -74,9 +114,25 @@ const questions: MatchingQuestion[] = [
   },
 ];
 
+const agePreferenceQuestion: MatchingQuestion = {
+  kind: "single",
+  options: [
+    { id: "older", label: "Older" },
+    { id: "same-age", label: "Same age" },
+    { id: "younger", label: "Younger" },
+    { id: "soul-match", label: "Soul match" },
+  ],
+  prompt: "Age preference",
+  questionCode: "q-age-preference",
+  scaleMax: null,
+  scaleMin: null,
+  weight: 1,
+};
+
 function createParticipant(input: {
   answers: MatchingParticipant["answers"];
   birthYear: number;
+  campus?: string;
   gender: string;
   id: string;
 }) {
@@ -85,9 +141,10 @@ function createParticipant(input: {
     participationId: input.id,
     profileSnapshot: {
       birth_year: input.birthYear,
-      department: "软件学院",
+      campus: input.campus ?? "xianlin",
+      department: "software",
       gender: input.gender,
-      grade: "研一",
+      grade: "year-1",
       nickname: input.id,
     },
     userId: input.id,
@@ -95,7 +152,7 @@ function createParticipant(input: {
 }
 
 describe("matching engine", () => {
-  it("rejects same-gender pairs because of the fixed profile filter", () => {
+  it("rejects same-gender pairs before scoring", () => {
     const left = createParticipant({
       answers: {
         "q-multiple": ["read", "walk"],
@@ -103,7 +160,7 @@ describe("matching engine", () => {
         "q-single": "slow",
       },
       birthYear: 2001,
-      gender: "女",
+      gender: "female",
       id: "left",
     });
     const right = createParticipant({
@@ -113,15 +170,49 @@ describe("matching engine", () => {
         "q-single": "slow",
       },
       birthYear: 2002,
-      gender: "女",
+      gender: "female",
       id: "right",
     });
 
     expect(
       buildPairCandidate({
         left,
-        matchingPolicy,
-        questions,
+        matchingPolicy: defaultMatchingPolicy,
+        questions: standardQuestions,
+        right,
+      }),
+    ).toBeNull();
+  });
+
+  it("rejects different-campus pairs before scoring", () => {
+    const left = createParticipant({
+      answers: {
+        "q-multiple": ["read", "walk"],
+        "q-scale": 4,
+        "q-single": "slow",
+      },
+      birthYear: 2001,
+      campus: "xianlin",
+      gender: "female",
+      id: "left",
+    });
+    const right = createParticipant({
+      answers: {
+        "q-multiple": ["read", "walk"],
+        "q-scale": 4,
+        "q-single": "slow",
+      },
+      birthYear: 2002,
+      campus: "gulou",
+      gender: "male",
+      id: "right",
+    });
+
+    expect(
+      buildPairCandidate({
+        left,
+        matchingPolicy: defaultMatchingPolicy,
+        questions: standardQuestions,
         right,
       }),
     ).toBeNull();
@@ -133,7 +224,7 @@ describe("matching engine", () => {
         "q-single": "slow",
       },
       birthYear: 2001,
-      gender: "女",
+      gender: "female",
       id: "left",
     });
     const right = createParticipant({
@@ -141,15 +232,15 @@ describe("matching engine", () => {
         "q-single": "slow",
       },
       birthYear: 2002,
-      gender: "男",
+      gender: "male",
       id: "right",
     });
 
     expect(
       buildPairCandidate({
         left,
-        matchingPolicy,
-        questions,
+        matchingPolicy: defaultMatchingPolicy,
+        questions: standardQuestions,
         right,
       }),
     ).toBeNull();
@@ -163,7 +254,7 @@ describe("matching engine", () => {
         "q-single": "slow",
       },
       birthYear: 2001,
-      gender: "女",
+      gender: "female",
       id: "left",
     });
     const right = createParticipant({
@@ -173,20 +264,150 @@ describe("matching engine", () => {
         "q-single": "slow",
       },
       birthYear: 2002,
-      gender: "男",
+      gender: "male",
       id: "right",
     });
 
     const candidate = buildPairCandidate({
       left,
-      matchingPolicy,
-      questions,
+      matchingPolicy: defaultMatchingPolicy,
+      questions: standardQuestions,
       right,
     });
 
     expect(candidate).not.toBeNull();
     expect(candidate?.score).toBeGreaterThanOrEqual(60);
-    expect(candidate?.reasons.length).toBeGreaterThan(0);
+    expect(candidate?.previewText).toBeTruthy();
+    expect(candidate?.reasons.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it("applies the special age-preference score when preferences align with actual ages", () => {
+    const left = createParticipant({
+      answers: {
+        "q-age-preference": "older",
+      },
+      birthYear: 2002,
+      gender: "female",
+      id: "left",
+    });
+    const right = createParticipant({
+      answers: {
+        "q-age-preference": "younger",
+      },
+      birthYear: 2001,
+      gender: "male",
+      id: "right",
+    });
+
+    const candidate = buildPairCandidate({
+      left,
+      matchingPolicy: ageOnlyPolicy,
+      questions: [agePreferenceQuestion],
+      right,
+    });
+
+    expect(candidate).not.toBeNull();
+    expect(candidate?.comparableCount).toBe(1);
+    expect(candidate?.score).toBe(100);
+  });
+
+  it("keeps q-age-preference comparable even when the final score is zero", () => {
+    const left = createParticipant({
+      answers: {
+        "q-age-preference": "older",
+      },
+      birthYear: 2002,
+      gender: "female",
+      id: "left",
+    });
+    const right = createParticipant({
+      answers: {
+        "q-age-preference": "older",
+      },
+      birthYear: 2001,
+      gender: "male",
+      id: "right",
+    });
+
+    const candidate = buildPairCandidate({
+      left,
+      matchingPolicy: ageOnlyPolicy,
+      questions: [agePreferenceQuestion],
+      right,
+    });
+
+    expect(candidate).not.toBeNull();
+    expect(candidate?.comparableCount).toBe(1);
+    expect(candidate?.score).toBe(0);
+    expect(candidate?.previewText).toBeTruthy();
+    expect(candidate?.reasons.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it("scores same-age preference with a one-year gap at 25", () => {
+    const left = createParticipant({
+      answers: {
+        "q-age-preference": "same-age",
+      },
+      birthYear: 2002,
+      gender: "female",
+      id: "left",
+    });
+    const right = createParticipant({
+      answers: {
+        "q-age-preference": "same-age",
+      },
+      birthYear: 2001,
+      gender: "male",
+      id: "right",
+    });
+
+    const candidate = buildPairCandidate({
+      left,
+      matchingPolicy: ageOnlyPolicy,
+      questions: [agePreferenceQuestion],
+      right,
+    });
+
+    expect(candidate).not.toBeNull();
+    expect(candidate?.score).toBe(25);
+  });
+
+  it("does not let campus same_bonus raise the score after campus becomes a hard filter", () => {
+    const scaleOnlyQuestion: MatchingQuestion = {
+      kind: "scale",
+      options: [],
+      prompt: "Meet frequency",
+      questionCode: "q-scale",
+      scaleMax: 5,
+      scaleMin: 1,
+      weight: 1,
+    };
+    const left = createParticipant({
+      answers: {
+        "q-scale": 4,
+      },
+      birthYear: 2002,
+      gender: "female",
+      id: "left",
+    });
+    const right = createParticipant({
+      answers: {
+        "q-scale": 5,
+      },
+      birthYear: 2001,
+      gender: "male",
+      id: "right",
+    });
+
+    const candidate = buildPairCandidate({
+      left,
+      matchingPolicy: campusScoringPolicy,
+      questions: [scaleOnlyQuestion],
+      right,
+    });
+
+    expect(candidate).not.toBeNull();
+    expect(candidate?.score).toBe(75);
   });
 
   it("keeps only the highest-ranked non-overlapping pairs", () => {
@@ -197,7 +418,7 @@ describe("matching engine", () => {
         "q-single": "slow",
       },
       birthYear: 2001,
-      gender: "女",
+      gender: "female",
       id: "left",
     });
     const rightStrong = createParticipant({
@@ -207,7 +428,7 @@ describe("matching engine", () => {
         "q-single": "slow",
       },
       birthYear: 2002,
-      gender: "男",
+      gender: "male",
       id: "right-strong",
     });
     const rightWeak = createParticipant({
@@ -217,20 +438,20 @@ describe("matching engine", () => {
         "q-single": "fast",
       },
       birthYear: 2005,
-      gender: "男",
+      gender: "male",
       id: "right-weak",
     });
 
     const strongCandidate = buildPairCandidate({
       left,
-      matchingPolicy,
-      questions,
+      matchingPolicy: defaultMatchingPolicy,
+      questions: standardQuestions,
       right: rightStrong,
     });
     const weakCandidate = buildPairCandidate({
       left,
-      matchingPolicy,
-      questions,
+      matchingPolicy: defaultMatchingPolicy,
+      questions: standardQuestions,
       right: rightWeak,
     });
 

@@ -48,6 +48,10 @@ type QuestionComparison = {
   signal?: string;
 };
 
+const AGE_PREFERENCE_QUESTION_CODE = "q-age-preference";
+
+type AgePreferenceAnswer = "older" | "same-age" | "younger" | "soul-match";
+
 function getOptionMap(question: MatchingQuestion) {
   return new Map(question.options.map((option) => [option.id, option.label]));
 }
@@ -139,29 +143,164 @@ function compareScaleQuestion(
   } satisfies QuestionComparison;
 }
 
+function isAgePreferenceAnswer(value: string): value is AgePreferenceAnswer {
+  return (
+    value === "older" ||
+    value === "same-age" ||
+    value === "younger" ||
+    value === "soul-match"
+  );
+}
+
+function getAgePreferenceSatisfaction(input: {
+  counterpartBirthYear: number;
+  preference: AgePreferenceAnswer;
+  selfBirthYear: number;
+}) {
+  switch (input.preference) {
+    case "older":
+      if (input.counterpartBirthYear < input.selfBirthYear) {
+        return 1;
+      }
+
+      if (input.counterpartBirthYear === input.selfBirthYear) {
+        return 0.25;
+      }
+
+      return 0;
+    case "same-age": {
+      const ageGap = Math.abs(input.selfBirthYear - input.counterpartBirthYear);
+
+      if (ageGap === 0) {
+        return 1;
+      }
+
+      if (ageGap === 1) {
+        return 0.5;
+      }
+
+      return 0;
+    }
+    case "younger":
+      if (input.counterpartBirthYear > input.selfBirthYear) {
+        return 1;
+      }
+
+      if (input.counterpartBirthYear === input.selfBirthYear) {
+        return 0.25;
+      }
+
+      return 0;
+    case "soul-match":
+      return 1;
+  }
+}
+
+function compareSpecialQuestion(input: {
+  left: MatchingParticipant;
+  leftAnswer: string | string[] | number | undefined;
+  question: MatchingQuestion;
+  right: MatchingParticipant;
+  rightAnswer: string | string[] | number | undefined;
+}) {
+  if (input.question.questionCode !== AGE_PREFERENCE_QUESTION_CODE) {
+    return null;
+  }
+
+  if (
+    typeof input.leftAnswer !== "string" ||
+    typeof input.rightAnswer !== "string" ||
+    !isAgePreferenceAnswer(input.leftAnswer) ||
+    !isAgePreferenceAnswer(input.rightAnswer)
+  ) {
+    return null;
+  }
+
+  const leftBirthYear = input.left.profileSnapshot.birth_year;
+  const rightBirthYear = input.right.profileSnapshot.birth_year;
+
+  if (
+    typeof leftBirthYear !== "number" ||
+    typeof rightBirthYear !== "number" ||
+    !Number.isInteger(leftBirthYear) ||
+    !Number.isInteger(rightBirthYear)
+  ) {
+    return null;
+  }
+
+  const leftSatisfaction = getAgePreferenceSatisfaction({
+    counterpartBirthYear: rightBirthYear,
+    preference: input.leftAnswer,
+    selfBirthYear: leftBirthYear,
+  });
+  const rightSatisfaction = getAgePreferenceSatisfaction({
+    counterpartBirthYear: leftBirthYear,
+    preference: input.rightAnswer,
+    selfBirthYear: rightBirthYear,
+  });
+
+  return {
+    score: leftSatisfaction * rightSatisfaction,
+  } satisfies QuestionComparison;
+}
+
 function compareQuestion(
-  question: MatchingQuestion,
-  leftAnswer: string | string[] | number | undefined,
-  rightAnswer: string | string[] | number | undefined,
-) {
+  input: {
+    left: MatchingParticipant;
+    question: MatchingQuestion;
+    right: MatchingParticipant;
+  },
+): QuestionComparison | null {
+  const leftAnswer = input.left.answers[input.question.questionCode];
+  const rightAnswer = input.right.answers[input.question.questionCode];
+
   if (leftAnswer === undefined || rightAnswer === undefined) {
     return null;
   }
 
-  switch (question.kind) {
+  const specialComparison = compareSpecialQuestion({
+    left: input.left,
+    leftAnswer,
+    question: input.question,
+    right: input.right,
+    rightAnswer,
+  });
+
+  if (specialComparison) {
+    return specialComparison;
+  }
+
+  switch (input.question.kind) {
     case "single":
       return typeof leftAnswer === "string" && typeof rightAnswer === "string"
-        ? compareSingleQuestion(question, leftAnswer, rightAnswer)
+        ? compareSingleQuestion(input.question, leftAnswer, rightAnswer)
         : null;
     case "multiple":
       return Array.isArray(leftAnswer) && Array.isArray(rightAnswer)
-        ? compareMultipleQuestion(question, leftAnswer, rightAnswer)
+        ? compareMultipleQuestion(input.question, leftAnswer, rightAnswer)
         : null;
     case "scale":
       return typeof leftAnswer === "number" && typeof rightAnswer === "number"
-        ? compareScaleQuestion(question, leftAnswer, rightAnswer)
+        ? compareScaleQuestion(input.question, leftAnswer, rightAnswer)
         : null;
   }
+}
+
+function passesHardProfileConstraints(
+  left: MatchingParticipant,
+  right: MatchingParticipant,
+) {
+  const leftGender = left.profileSnapshot.gender;
+  const rightGender = right.profileSnapshot.gender;
+
+  if (!leftGender || !rightGender || leftGender === rightGender) {
+    return false;
+  }
+
+  const leftCampus = left.profileSnapshot.campus;
+  const rightCampus = right.profileSnapshot.campus;
+
+  return Boolean(leftCampus && rightCampus && leftCampus === rightCampus);
 }
 
 function evaluateProfileFilters(
@@ -195,6 +334,10 @@ function evaluateProfileRule(
   let weightedScore = 0;
 
   policy.profileScoring.forEach((rule) => {
+    if (rule.field === "campus") {
+      return;
+    }
+
     totalWeight += rule.weight;
 
     if (rule.mode === "same_bonus") {
@@ -254,6 +397,10 @@ export function buildPairCandidate(input: {
 }) {
   const { left, matchingPolicy, questions, right } = input;
 
+  if (!passesHardProfileConstraints(left, right)) {
+    return null;
+  }
+
   if (!evaluateProfileFilters(matchingPolicy, left, right)) {
     return null;
   }
@@ -268,11 +415,7 @@ export function buildPairCandidate(input: {
   weightedScore += profileResult.weightedScore;
 
   questions.forEach((question) => {
-    const comparison = compareQuestion(
-      question,
-      left.answers[question.questionCode],
-      right.answers[question.questionCode],
-    );
+    const comparison = compareQuestion({ left, question, right });
 
     if (!comparison) {
       return;

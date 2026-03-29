@@ -1,0 +1,612 @@
+{
+  "title": "2026 春季匹配偏好问卷",
+  "description": "比起快速匹配，我们更在意合适匹配。因此，这份问卷设置了 40 个问题，用来更细致地理解你的个性、价值观与关系偏好，让推荐不止停留在表面。",
+  "matchingPolicy": {
+    "minimumPairScore": 63,
+    "profileFilters": [
+      {
+        "field": "gender",
+        "mode": "opposite_required"
+      }
+    ],
+    "profileScoring": [
+      {
+        "field": "grade",
+        "mode": "same_bonus",
+        "weight": 0.6
+      },
+      {
+        "field": "department",
+        "mode": "same_bonus",
+        "weight": 0.4
+      },
+      {
+        "field": "birth_year",
+        "mode": "distance_penalty",
+        "maxGap": 4,
+        "weight": 0.5
+      }
+    ],
+    "questionScoring": {
+      "singleDefaultWeight": 1,
+      "multipleDefaultWeight": 1.2,
+      "scaleDefaultWeight": 1.5,
+      "minimumComparableQuestions": 12
+    }
+  },
+  "sections": [
+    {
+      "code": "daily-rhythm",
+      "title": "日常节奏与生活方式",
+      "subtitle": "作息、饮食、社交与休闲偏好",
+      "description": "这组题主要比较双方的日常节奏和基础生活方式是否容易磨合。",
+      "sortOrder": 1,
+      "questions": [
+        {
+          "questionCode": "q-sleep-rule",
+          "kind": "scale",
+          "prompt": "你的就寝守则",
+          "isRequired": true,
+          "weight": 0.6,
+          "sortOrder": 1,
+          "scaleMin": 1,
+          "scaleMax": 7,
+          "scaleLeftLabel": "养生局：23点前准时躺平",
+          "scaleMiddleLabel": "随缘局：看DDL和今晚的瓜好不好吃",
+          "scaleRightLabel": "暗夜精灵：凌晨2点，我的夜生活才刚刚开始"
+        },
+        {
+          "questionCode": "q-weekend-morning",
+          "kind": "scale",
+          "prompt": "周末早晨的打开方式",
+          "isRequired": true,
+          "weight": 0.5,
+          "sortOrder": 2,
+          "scaleMin": 1,
+          "scaleMax": 7,
+          "scaleLeftLabel": "生物钟王者：绝不赖床，早起拥抱阳光",
+          "scaleMiddleLabel": "看昨晚有多累",
+          "scaleRightLabel": "被窝结界：一觉睡到下午，早午饭合一才是周末"
+        },
+        {
+          "questionCode": "q-diet-philosophy",
+          "kind": "scale",
+          "prompt": "日常饮食哲学",
+          "isRequired": true,
+          "weight": 0.5,
+          "sortOrder": 3,
+          "scaleMin": 1,
+          "scaleMax": 7,
+          "scaleLeftLabel": "自律星人：成分党，极度克制减脂",
+          "scaleMiddleLabel": "打工人标配：食堂外卖，偶尔放纵",
+          "scaleRightLabel": "快乐小狗：必须爽吃！唯爱与美食不可辜负"
+        },
+        {
+          "questionCode": "q-order-sense",
+          "kind": "scale",
+          "prompt": "对居住空间的“秩序感”",
+          "isRequired": true,
+          "weight": 0.8,
+          "sortOrder": 4,
+          "scaleMin": 1,
+          "scaleMax": 7,
+          "scaleLeftLabel": "样板间主理人：强迫症，物品必须归位",
+          "scaleMiddleLabel": "乱中有序：别人看着乱，但我就是找得到",
+          "scaleRightLabel": "随性艺术家：狗窝也是一种生活态度"
+        },
+        {
+          "questionCode": "q-exercise-frequency",
+          "kind": "scale",
+          "prompt": "主动流汗的频率（非被迫）",
+          "isRequired": true,
+          "weight": 0.4,
+          "sortOrder": 5,
+          "scaleMin": 1,
+          "scaleMax": 7,
+          "scaleLeftLabel": "静止即养生：能坐着绝不站着",
+          "scaleMiddleLabel": "仰卧起坐型：间歇性心血来潮动一动",
+          "scaleRightLabel": "健身房常驻VIP：一周4次以上，不练难受"
+        },
+        {
+          "questionCode": "q-social-battery",
+          "kind": "scale",
+          "prompt": "社交电量分配",
+          "isRequired": true,
+          "weight": 0.7,
+          "sortOrder": 6,
+          "scaleMin": 1,
+          "scaleMax": 7,
+          "scaleLeftLabel": "超级社恐：出门一趟，充电三天",
+          "scaleMiddleLabel": "看熟人浓度，熟人面前是疯子",
+          "scaleRightLabel": "社交永动机：人越多我越嗨，靠社交充电"
+        },
+        {
+          "questionCode": "q-alcohol-vibe",
+          "kind": "scale",
+          "prompt": "对“酒精”的暧昧程度",
+          "isRequired": true,
+          "weight": 0.5,
+          "sortOrder": 8,
+          "scaleMin": 1,
+          "scaleMax": 7,
+          "scaleLeftLabel": "滴酒不沾：酒精过敏或纯粹不爱",
+          "scaleMiddleLabel": "微醺氛围感：只在社交和开心时喝一点",
+          "scaleRightLabel": "无酒不欢：精酿/调酒野生品鉴家"
+        },
+        {
+          "questionCode": "q-weekend-recharge",
+          "kind": "scale",
+          "prompt": "理想的周末充电方式",
+          "isRequired": true,
+          "weight": 0.4,
+          "sortOrder": 9,
+          "scaleMin": 1,
+          "scaleMax": 7,
+          "scaleLeftLabel": "绝对宅家：追剧/游戏/看书，门外有怪兽",
+          "scaleMiddleLabel": "室内外丝滑切换",
+          "scaleRightLabel": "必须出门：Citywalk/探店/看展，世界那么大"
+        },
+        {
+          "questionCode": "q-study-date",
+          "kind": "scale",
+          "prompt": "关于“一起自习/看书”这种约会",
+          "isRequired": true,
+          "weight": 0.3,
+          "sortOrder": 10,
+          "scaleMin": 1,
+          "scaleMax": 7,
+          "scaleLeftLabel": "莫挨老子：学习时必须六亲不认，谢绝干扰",
+          "scaleMiddleLabel": "看复习压力有多大",
+          "scaleRightLabel": "极致浪漫：最喜欢这种并肩作战、默默陪伴的安心感"
+        }
+      ]
+    },
+    {
+      "code": "worldview-style",
+      "title": "世界观与认知风格",
+      "subtitle": "思考方式、信息偏好与性格底色",
+      "description": "这组题主要比较双方在认知方式、价值判断和精神偏好上的一致度。",
+      "sortOrder": 2,
+      "questions": [
+        {
+          "questionCode": "q-controversy-instinct",
+          "kind": "scale",
+          "prompt": "吃瓜或面对社会争议时，你的第一反应",
+          "isRequired": true,
+          "weight": 0.6,
+          "sortOrder": 1,
+          "scaleMin": 1,
+          "scaleMax": 7,
+          "scaleLeftLabel": "柔软共情：代入弱者，在意情绪与道义",
+          "scaleMiddleLabel": "先让子弹飞一会儿",
+          "scaleRightLabel": "无情拆解：寻找底层逻辑、客观依据和数据"
+        },
+        {
+          "questionCode": "q-success-formula",
+          "kind": "scale",
+          "prompt": "你眼中的“成功”配方",
+          "isRequired": true,
+          "weight": 0.5,
+          "sortOrder": 2,
+          "scaleMin": 1,
+          "scaleMax": 7,
+          "scaleLeftLabel": "时代的一粒灰：运气和宏观结构决定了99%",
+          "scaleMiddleLabel": "尽人事，听天命",
+          "scaleRightLabel": "我命由我：没成就是不够拼或能力不足"
+        },
+        {
+          "questionCode": "q-world-outlook-10y",
+          "kind": "scale",
+          "prompt": "对未来 10 年的世界局势预期",
+          "isRequired": true,
+          "weight": 0.3,
+          "sortOrder": 3,
+          "scaleMin": 1,
+          "scaleMax": 7,
+          "scaleLeftLabel": "谨慎囤积：悲观防御，充满危机感",
+          "scaleMiddleLabel": "普通 NPC 视角：跟现在没啥区别",
+          "scaleRightLabel": "相信光：乐观进取，永远相信技术与增长"
+        },
+        {
+          "questionCode": "q-moral-pragmatism",
+          "kind": "scale",
+          "prompt": "当保研/升职等“现实利益”与内心的“道德洁癖”轻微冲突时",
+          "isRequired": true,
+          "weight": 0.9,
+          "sortOrder": 4,
+          "scaleMin": 1,
+          "scaleMax": 7,
+          "scaleLeftLabel": "坚守底线：宁可不要，也不能恶心自己",
+          "scaleMiddleLabel": "看情况，纠结权衡",
+          "scaleRightLabel": "实用主义大师：在规则允许的边缘，果断争取自身利益"
+        },
+        {
+          "questionCode": "q-science-mysticism",
+          "kind": "scale",
+          "prompt": "科学与玄学的结界",
+          "isRequired": true,
+          "weight": 0.5,
+          "sortOrder": 5,
+          "scaleMin": 1,
+          "scaleMax": 7,
+          "scaleLeftLabel": "坚定的唯物主义战士：只信科学",
+          "scaleMiddleLabel": "遇事不决，量子力学和塔罗星盘各占一半",
+          "scaleRightLabel": "神秘学爱好者：对超自然力量有强烈敬畏或兴趣"
+        },
+        {
+          "questionCode": "q-info-diet",
+          "kind": "scale",
+          "prompt": "日常获取信息/精神食粮的偏好",
+          "isRequired": true,
+          "weight": 0.3,
+          "sortOrder": 6,
+          "scaleMin": 1,
+          "scaleMax": 7,
+          "scaleLeftLabel": "深度潜水：长文本/严肃媒体/深度播客",
+          "scaleMiddleLabel": "泛读冲浪：图文资讯/公众号",
+          "scaleRightLabel": "短平快：短视频/碎片化信息流"
+        },
+        {
+          "questionCode": "q-mental-rumination",
+          "kind": "scale",
+          "prompt": "你是精神内耗星人吗",
+          "isRequired": true,
+          "weight": 0.6,
+          "sortOrder": 7,
+          "scaleMin": 1,
+          "scaleMax": 7,
+          "scaleLeftLabel": "内耗之王：深夜常反刍过去，疯狂 emo",
+          "scaleMiddleLabel": "偶尔 emo，但能自我消化",
+          "scaleRightLabel": "顶级钝感力：事过无悔，从不回头看"
+        },
+        {
+          "questionCode": "q-communication-drive",
+          "kind": "scale",
+          "prompt": "遇到不同意见时的“沟通欲”",
+          "isRequired": true,
+          "weight": 1.0,
+          "sortOrder": 8,
+          "scaleMin": 1,
+          "scaleMax": 7,
+          "scaleLeftLabel": "退一步海阔天空：你开心就好，懒得争",
+          "scaleMiddleLabel": "只和同频的人交流",
+          "scaleRightLabel": "逻辑狂魔：今天必须把理盘清楚，辩论到底"
+        },
+        {
+          "questionCode": "q-art-dependence",
+          "kind": "scale",
+          "prompt": "对电影/文学/艺术的依赖度",
+          "isRequired": true,
+          "weight": 0.3,
+          "sortOrder": 9,
+          "scaleMin": 1,
+          "scaleMax": 7,
+          "scaleLeftLabel": "生活调剂：随便看个乐呵就行",
+          "scaleMiddleLabel": "偶尔需要一点精神共鸣",
+          "scaleRightLabel": "精神氧气：没有它们，灵魂会枯萎"
+        },
+        {
+          "questionCode": "q-compassion-response",
+          "kind": "scale",
+          "prompt": "看到路边的流浪猫狗或弱势求助",
+          "isRequired": true,
+          "weight": 0.9,
+          "sortOrder": 10,
+          "scaleMin": 1,
+          "scaleMax": 7,
+          "scaleLeftLabel": "理性克制：极少介入",
+          "scaleMiddleLabel": "看当时的心情和缘分",
+          "scaleRightLabel": "猫狗菩萨/人间小天使：极具同情心，经常投喂或行动"
+        }
+      ]
+    },
+    {
+      "code": "life-strategy",
+      "title": "现实取向与人生策略",
+      "subtitle": "竞争感、人生目标、家庭影响与资源观",
+      "description": "这组题主要比较双方面对现实压力、资源分配和长期人生方向时的倾向。",
+      "sortOrder": 3,
+      "questions": [
+        {
+          "questionCode": "q-competition-posture",
+          "kind": "scale",
+          "prompt": "面对当下的竞争环境，你的真实姿态",
+          "isRequired": true,
+          "weight": 0.7,
+          "sortOrder": 1,
+          "scaleMin": 1,
+          "scaleMax": 7,
+          "scaleLeftLabel": "卷王之王：目标 Top 1%，绝不认输",
+          "scaleMiddleLabel": "仰卧起坐：间歇性踌躇满志，持续性混吃等死",
+          "scaleRightLabel": "松弛感拉满：彻底躺平，60 分万岁"
+        },
+        {
+          "questionCode": "q-ideal-life",
+          "kind": "scale",
+          "prompt": "你内心深处“向往的人生”",
+          "isRequired": true,
+          "weight": 1.8,
+          "sortOrder": 2,
+          "scaleMin": 1,
+          "scaleMax": 7,
+          "scaleLeftLabel": "留下世俗丰碑：搞钱、地位、改变世界",
+          "scaleMiddleLabel": "还没想好，走一步看一步",
+          "scaleRightLabel": "极致个人体验：自由、健康、内心的平静最重要"
+        },
+        {
+          "questionCode": "q-family-influence",
+          "kind": "scale",
+          "prompt": "面对择偶/择业等重大决策，原生家庭的影响力",
+          "isRequired": true,
+          "weight": 2.1,
+          "sortOrder": 3,
+          "scaleMin": 1,
+          "scaleMax": 7,
+          "scaleLeftLabel": "绝对大女主/大男主：我的人生我做主",
+          "scaleMiddleLabel": "会参考父母意见，但自己拍板",
+          "scaleRightLabel": "听爸妈的话：高度尊重长辈，难以违背"
+        },
+        {
+          "questionCode": "q-spending-direction",
+          "kind": "scale",
+          "prompt": "日常可支配资金的去向",
+          "isRequired": true,
+          "weight": 1.1,
+          "sortOrder": 4,
+          "scaleMin": 1,
+          "scaleMax": 7,
+          "scaleLeftLabel": "仓鼠症：看着余额上涨才有安全感",
+          "scaleMiddleLabel": "理智派：量入为出，精打细算",
+          "scaleRightLabel": "千金难买我乐意：为了体验和情绪价值疯狂氪金"
+        },
+        {
+          "questionCode": "q-support-style",
+          "kind": "scale",
+          "prompt": "如果是伴侣遭遇重大挫折（如考试失利）",
+          "isRequired": true,
+          "weight": 1.0,
+          "sortOrder": 5,
+          "scaleMin": 1,
+          "scaleMax": 7,
+          "scaleLeftLabel": "满分情绪价值：抱抱贴贴、吃顿好的、陪你一起骂",
+          "scaleMiddleLabel": "看对方当时需要什么",
+          "scaleRightLabel": "满分理性辅助：帮找Bug、看逻辑、分析解决办法"
+        },
+        {
+          "questionCode": "q-money-drive",
+          "kind": "scale",
+          "prompt": "对“搞钱”的渴望值",
+          "isRequired": true,
+          "weight": 1.6,
+          "sortOrder": 6,
+          "scaleMin": 1,
+          "scaleMax": 7,
+          "scaleLeftLabel": "够花就行：更看重热爱和生活质量",
+          "scaleMiddleLabel": "有钱当然好，但不愿拿命换",
+          "scaleRightLabel": "搞钱狂魔：这是我人生的核心驱动力"
+        },
+        {
+          "questionCode": "q-stable-job-view",
+          "kind": "scale",
+          "prompt": "如何看待“一眼望到头”的稳定工作（如体制内）",
+          "isRequired": true,
+          "weight": 1.7,
+          "sortOrder": 7,
+          "scaleMin": 1,
+          "scaleMax": 7,
+          "scaleLeftLabel": "极度抗拒：我要折腾，我要无限可能",
+          "scaleMiddleLabel": "挺好的，是个不错的退路",
+          "scaleRightLabel": "宇宙的尽头是编制：极度向往"
+        }
+      ]
+    },
+    {
+      "code": "relationship-dynamics",
+      "title": "关系模式与亲密相处",
+      "subtitle": "空间感、争执风格、依恋倾向与互动偏好",
+      "description": "这组题主要比较双方在进入关系后会如何相处、沟通和处理情绪。",
+      "sortOrder": 4,
+      "questions": [
+        {
+          "questionCode": "q-relationship-space",
+          "kind": "scale",
+          "prompt": "理想恋爱中的“空间感”",
+          "isRequired": true,
+          "weight": 2.1,
+          "sortOrder": 1,
+          "scaleMin": 1,
+          "scaleMax": 7,
+          "scaleLeftLabel": "连体婴模式：事事分享，需要高浓度陪伴",
+          "scaleMiddleLabel": "日常分享，但保留各自的朋友圈",
+          "scaleRightLabel": "独立自由猫：即使恋爱也需要极大的独处空间"
+        },
+        {
+          "questionCode": "q-partner-role",
+          "kind": "scale",
+          "prompt": "你希望伴侣扮演的核心角色",
+          "isRequired": true,
+          "weight": 1.2,
+          "sortOrder": 2,
+          "scaleMin": 1,
+          "scaleMax": 7,
+          "scaleLeftLabel": "情绪避风港：温柔、包容、治愈我的疲惫",
+          "scaleMiddleLabel": "生活合伙人：分担现实压力，一起搭伙过日子",
+          "scaleRightLabel": "精神战友：势均力敌，互相鞭策，共同成长"
+        },
+        {
+          "questionCode": "q-conflict-response",
+          "kind": "scale",
+          "prompt": "与亲近的人吵架了，你的第一反应",
+          "isRequired": true,
+          "weight": 2.0,
+          "sortOrder": 3,
+          "scaleMin": 1,
+          "scaleMax": 7,
+          "scaleLeftLabel": "冷静期爱好者：需要时间和空间，拒绝争吵",
+          "scaleMiddleLabel": "睡一觉，明天再说",
+          "scaleRightLabel": "决战到天亮：必须当下把话说清楚，大吵一架也行"
+        },
+        {
+          "questionCode": "q-love-language",
+          "kind": "multiple",
+          "prompt": "你的“爱的语言”是",
+          "helperText": "可多选。",
+          "isRequired": true,
+          "weight": 0.7,
+          "sortOrder": 4,
+          "options": [
+            { "id": "words", "label": "夸夸群群主（肯定的言语）" },
+            { "id": "gifts", "label": "制造惊喜（精心准备的礼物）" },
+            { "id": "acts", "label": "行动派（帮忙跑腿/做饭/修东西）" },
+            { "id": "quality-time", "label": "陪在你身边（高质量的陪伴）" },
+            { "id": "touch", "label": "抱抱贴贴（身体接触）" }
+          ]
+        },
+        {
+          "questionCode": "q-attachment-style",
+          "kind": "scale",
+          "prompt": "在感情里，你觉得自己更偏向哪种依恋类型",
+          "isRequired": true,
+          "weight": 2.1,
+          "sortOrder": 5,
+          "scaleMin": 1,
+          "scaleMax": 7,
+          "scaleLeftLabel": "患得患失：容易焦虑，需要反复确认被爱",
+          "scaleMiddleLabel": "安全岛：情绪稳定，充分信任对方",
+          "scaleRightLabel": "回避型：对方一靠近或太粘人，我就想逃"
+        },
+        {
+          "questionCode": "q-history-transparency",
+          "kind": "scale",
+          "prompt": "对待过去的情史，你希望的坦诚度",
+          "isRequired": true,
+          "weight": 0.9,
+          "sortOrder": 6,
+          "scaleMin": 1,
+          "scaleMax": 7,
+          "scaleLeftLabel": "封心锁爱：绝对不问，过去就让它过去",
+          "scaleMiddleLabel": "顺其自然：你问我就说，不问不提",
+          "scaleRightLabel": "全透明坦白局：希望了解对方的全部感情史"
+        },
+        {
+          "questionCode": "q-ritual-importance",
+          "kind": "scale",
+          "prompt": "对“仪式感”（纪念日、情人节）的执念",
+          "isRequired": true,
+          "weight": 0.6,
+          "sortOrder": 7,
+          "scaleMin": 1,
+          "scaleMax": 7,
+          "scaleLeftLabel": "实用至上：完全不在乎，都是消费主义陷阱",
+          "scaleMiddleLabel": "记得就行，吃顿饭也开心",
+          "scaleRightLabel": "仪式感狂魔：极度看重，必须有花有惊喜"
+        },
+        {
+          "questionCode": "q-relation-power",
+          "kind": "scale",
+          "prompt": "在关系中，你更享受",
+          "isRequired": true,
+          "weight": 0.8,
+          "sortOrder": 8,
+          "scaleMin": 1,
+          "scaleMax": 7,
+          "scaleLeftLabel": "被安排得明明白白：喜欢对方主导/有点霸道",
+          "scaleMiddleLabel": "遇事有商有量：平等互助",
+          "scaleRightLabel": "绝对掌控者：喜欢安排和主导一切"
+        }
+      ]
+    },
+    {
+      "code": "match-expectations",
+      "title": "现实择偶条件与脱单期待",
+      "subtitle": "城市、异地、年龄、吸引点与目标状态",
+      "description": "这组题主要比较双方对未来落点、关系期待和现实条件的接受范围。",
+      "sortOrder": 5,
+      "questions": [
+        {
+          "questionCode": "q-future-city-plan",
+          "kind": "single",
+          "prompt": "关于未来的城市坐标，你的设想",
+          "isRequired": true,
+          "weight": 2.0,
+          "sortOrder": 1,
+          "options": [
+            { "id": "tier-one-only", "label": "非一线（北上广深）不去" },
+            { "id": "new-first-tier", "label": "强二线/省会城市就很巴适" },
+            { "id": "hometown-or-system", "label": "倾向于扎根三四线/老家/体制内" },
+            { "id": "overseas", "label": "目标海外或港澳台" },
+            { "id": "flexible-offer", "label": "四海为家，看哪里的 Offer 香" }
+          ]
+        },
+        {
+          "questionCode": "q-long-distance-acceptance",
+          "kind": "single",
+          "prompt": "对于异地恋的接受度",
+          "isRequired": true,
+          "weight": 1.9,
+          "sortOrder": 2,
+          "options": [
+            { "id": "same-city-only", "label": "达咩，必须一直同城" },
+            { "id": "short-term-ok", "label": "可以接受短期（1年内）异地" },
+            { "id": "long-term-ok", "label": "只要心在一起，中长期异地也能熬" },
+            { "id": "depends-on-feelings", "label": "没想那么远，感情到位就行" }
+          ]
+        },
+        {
+          "questionCode": "q-age-preference",
+          "kind": "single",
+          "prompt": "关于年龄的偏好",
+          "isRequired": true,
+          "weight": 2.0,
+          "sortOrder": 3,
+          "options": [
+            { "id": "older", "label": "偏爱年上/前辈的成熟感" },
+            { "id": "same-age", "label": "最好同级同岁，充满共鸣" },
+            { "id": "younger", "label": "享受年下/学弟学妹的活力" },
+            { "id": "soul-match", "label": "年龄/学历不卡死，灵魂契合最重要" }
+          ]
+        },
+        {
+          "questionCode": "q-appearance-vs-intelligence",
+          "kind": "scale",
+          "prompt": "颜控 vs 智性恋",
+          "isRequired": true,
+          "weight": 0.4,
+          "sortOrder": 4,
+          "scaleMin": 1,
+          "scaleMax": 7,
+          "scaleLeftLabel": "顶级颜控：五官决定三观",
+          "scaleMiddleLabel": "看着顺眼、干净清爽就行",
+          "scaleRightLabel": "智性恋天花板：大脑才是最高级的性感"
+        },
+        {
+          "questionCode": "q-dating-expectation",
+          "kind": "single",
+          "prompt": "你内心最真实的脱单期待",
+          "isRequired": true,
+          "weight": 2.1,
+          "sortOrder": 5,
+          "options": [
+            { "id": "companion", "label": "找个合拍的饭搭子/自习搭子/看展搭子" },
+            { "id": "serious-relationship", "label": "期待一场认真、长期的恋爱" },
+            { "id": "marriage-minded", "label": "现实压力大，希望以结婚为前提去认识靠谱的人" },
+            { "id": "curious-test", "label": "纯粹好奇，玩玩心理测试" }
+          ]
+        },
+        {
+          "questionCode": "q-partnering-urgency",
+          "kind": "scale",
+          "prompt": "最后，用一个词形容现在的脱单渴望值",
+          "isRequired": true,
+          "weight": 0.6,
+          "sortOrder": 6,
+          "scaleMin": 1,
+          "scaleMax": 7,
+          "scaleLeftLabel": "寡王本王：完全不急，心如止水",
+          "scaleMiddleLabel": "佛系青年：随缘，遇到合适的再说",
+          "scaleRightLabel": "急急急：月老请立刻给我发一个对象！"
+        }
+      ]
+    }
+  ]
+}

@@ -69,27 +69,46 @@ describe("MatchesPage", () => {
 
     render(await MatchesPage());
 
-    expect(screen.getByRole("heading", { name: "最近一次匹配" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "历史匹配" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "最近一次匹配" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "历史匹配" }),
+    ).toBeInTheDocument();
     expect(screen.getAllByText("第 3 轮")).toHaveLength(1);
     expect(screen.queryByText("最新摘要")).not.toBeInTheDocument();
     expect(screen.queryByText("历史摘要一")).not.toBeInTheDocument();
     expect(screen.queryByText("历史摘要二")).not.toBeInTheDocument();
-    expect(screen.getAllByText("匹配成功")).toHaveLength(2);
+    expect(screen.getAllByText("匹配成功")).toHaveLength(1);
     expect(screen.getByText("未匹配")).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: "查看详情" })).toHaveLength(2);
+    expect(screen.getAllByRole("link", { name: "查看详情" })).toHaveLength(3);
     expect(screen.queryByText(/匹配得分：/)).not.toBeInTheDocument();
     expect(screen.queryByText(/查看状态：/)).not.toBeInTheDocument();
     expect(screen.getAllByText(/发布时间：/)).toHaveLength(3);
 
+    const latestHeading = screen.getByRole("heading", { name: "最近一次匹配" });
+    const latestCard = latestHeading.parentElement
+      ?.nextElementSibling as HTMLElement | null;
+    expect(latestCard).not.toBeNull();
+    if (latestCard) {
+      expect(
+        within(latestCard).queryByText("匹配成功"),
+      ).not.toBeInTheDocument();
+      expect(within(latestCard).queryByText("未匹配")).not.toBeInTheDocument();
+      expect(within(latestCard).getByText("第 3 轮")).toBeInTheDocument();
+    }
+
     const historyHeading = screen.getByRole("heading", { name: "历史匹配" });
-    const historySection = historyHeading.parentElement?.nextElementSibling as
-      | HTMLElement
-      | null;
+    const historySection = historyHeading.parentElement
+      ?.nextElementSibling as HTMLElement | null;
     expect(historySection).not.toBeNull();
     if (historySection) {
-      expect(within(historySection).queryByText(/匹配得分：/)).not.toBeInTheDocument();
-      expect(within(historySection).queryByText(/查看状态：/)).not.toBeInTheDocument();
+      expect(
+        within(historySection).queryByText(/匹配得分：/),
+      ).not.toBeInTheDocument();
+      expect(
+        within(historySection).queryByText(/查看状态：/),
+      ).not.toBeInTheDocument();
     }
 
     const detailLinks = screen.getAllByRole("link", { name: "查看详情" });
@@ -118,12 +137,18 @@ describe("MatchesPage", () => {
 
     render(await MatchesPage());
 
-    expect(screen.getByRole("heading", { name: "最近一次匹配" })).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "历史匹配" })).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "最近一次匹配" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "历史匹配" }),
+    ).not.toBeInTheDocument();
     expect(screen.queryByText("唯一摘要")).not.toBeInTheDocument();
     expect(screen.queryByText(/匹配得分：/)).not.toBeInTheDocument();
     expect(screen.queryByText(/查看状态：/)).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "查看详情" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "查看详情" })).toBeInTheDocument();
+    expect(screen.queryByText("未匹配")).not.toBeInTheDocument();
+    expect(screen.getByText("第 1 轮")).toBeInTheDocument();
   });
 
   it("renders the empty state when there are no match records", async () => {
@@ -132,7 +157,11 @@ describe("MatchesPage", () => {
     render(await MatchesPage());
 
     expect(screen.getByText("还没有匹配记录")).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "最近一次匹配" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "历史匹配" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "最近一次匹配" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "历史匹配" }),
+    ).not.toBeInTheDocument();
   });
 });
