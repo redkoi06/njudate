@@ -2,37 +2,20 @@
   "title": "2026 春季匹配偏好问卷",
   "description": "比起快速匹配，我们更在意合适匹配。因此，这份问卷设置了 40 个问题，用来更细致地理解你的个性、价值观与关系偏好，让推荐不止停留在表面。",
   "matchingPolicy": {
-    "minimumPairScore": 63,
     "profileFilters": [
       {
-        "field": "gender",
-        "mode": "opposite_required"
+        "mode": "opposite_required",
+        "field": "gender"
       }
     ],
-    "profileScoring": [
-      {
-        "field": "grade",
-        "mode": "same_bonus",
-        "weight": 0.6
-      },
-      {
-        "field": "department",
-        "mode": "same_bonus",
-        "weight": 0.4
-      },
-      {
-        "field": "birth_year",
-        "mode": "distance_penalty",
-        "maxGap": 4,
-        "weight": 0.5
-      }
-    ],
+    "profileScoring": [],
     "questionScoring": {
+      "scaleDefaultWeight": 1.5,
       "singleDefaultWeight": 1,
       "multipleDefaultWeight": 1.2,
-      "scaleDefaultWeight": 1.5,
       "minimumComparableQuestions": 12
-    }
+    },
+    "minimumPairScore": 63
   },
   "sections": [
     {
