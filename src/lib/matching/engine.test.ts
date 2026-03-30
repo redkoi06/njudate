@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildPairCandidate,
-  selectGreedyPairs,
+  selectStablePairs,
   type MatchingParticipant,
   type MatchingQuestion,
 } from "@/lib/matching/engine";
@@ -129,6 +129,21 @@ const agePreferenceQuestion: MatchingQuestion = {
   weight: 1,
 };
 
+const longDistanceQuestion: MatchingQuestion = {
+  kind: "single",
+  options: [
+    { id: "same-city-only", label: "Same city only" },
+    { id: "short-term-ok", label: "Short-term ok" },
+    { id: "long-term-ok", label: "Long-term ok" },
+    { id: "depends-on-feelings", label: "Depends on feelings" },
+  ],
+  prompt: "Long distance acceptance",
+  questionCode: "q-long-distance-acceptance",
+  scaleMax: null,
+  scaleMin: null,
+  weight: 1,
+};
+
 function createParticipant(input: {
   answers: MatchingParticipant["answers"];
   birthYear: number;
@@ -184,9 +199,10 @@ describe("matching engine", () => {
     ).toBeNull();
   });
 
-  it("rejects different-campus pairs before scoring", () => {
+  it("rejects cross-campus pairs when both answer same-city-only", () => {
     const left = createParticipant({
       answers: {
+        "q-long-distance-acceptance": "same-city-only",
         "q-multiple": ["read", "walk"],
         "q-scale": 4,
         "q-single": "slow",
@@ -198,6 +214,7 @@ describe("matching engine", () => {
     });
     const right = createParticipant({
       answers: {
+        "q-long-distance-acceptance": "same-city-only",
         "q-multiple": ["read", "walk"],
         "q-scale": 4,
         "q-single": "slow",
@@ -212,7 +229,7 @@ describe("matching engine", () => {
       buildPairCandidate({
         left,
         matchingPolicy: defaultMatchingPolicy,
-        questions: standardQuestions,
+        questions: [...standardQuestions, longDistanceQuestion],
         right,
       }),
     ).toBeNull();
@@ -372,7 +389,70 @@ describe("matching engine", () => {
     expect(candidate?.score).toBe(25);
   });
 
-  it("does not let campus same_bonus raise the score after campus becomes a hard filter", () => {
+
+  it("keeps cross-campus pairs when at least one side accepts long distance", () => {
+    const left = createParticipant({
+      answers: {
+        "q-long-distance-acceptance": "same-city-only",
+      },
+      birthYear: 2002,
+      campus: "xianlin",
+      gender: "female",
+      id: "left",
+    });
+    const right = createParticipant({
+      answers: {
+        "q-long-distance-acceptance": "long-term-ok",
+      },
+      birthYear: 2001,
+      campus: "gulou",
+      gender: "male",
+      id: "right",
+    });
+
+    const candidate = buildPairCandidate({
+      left,
+      matchingPolicy: ageOnlyPolicy,
+      questions: [longDistanceQuestion],
+      right,
+    });
+
+    expect(candidate).not.toBeNull();
+    expect(candidate?.score).toBe(0);
+  });
+
+  it("applies long-distance preference score when campuses are the same", () => {
+    const left = createParticipant({
+      answers: {
+        "q-long-distance-acceptance": "same-city-only",
+      },
+      birthYear: 2002,
+      campus: "xianlin",
+      gender: "female",
+      id: "left",
+    });
+    const right = createParticipant({
+      answers: {
+        "q-long-distance-acceptance": "same-city-only",
+      },
+      birthYear: 2001,
+      campus: "xianlin",
+      gender: "male",
+      id: "right",
+    });
+
+    const candidate = buildPairCandidate({
+      left,
+      matchingPolicy: ageOnlyPolicy,
+      questions: [longDistanceQuestion],
+      right,
+    });
+
+    expect(candidate).not.toBeNull();
+    expect(candidate?.score).toBe(100);
+  });
+
+  it("allows campus same_bonus to contribute when campus is no longer a hard filter", () => {
     const scaleOnlyQuestion: MatchingQuestion = {
       kind: "scale",
       options: [],
@@ -407,10 +487,10 @@ describe("matching engine", () => {
     });
 
     expect(candidate).not.toBeNull();
-    expect(candidate?.score).toBe(75);
+    expect(candidate?.score).toBe(98);
   });
 
-  it("keeps only the highest-ranked non-overlapping pairs", () => {
+  it("keeps only the highest-ranked non-overlapping pairs when only one edge is eligible", () => {
     const left = createParticipant({
       answers: {
         "q-multiple": ["read", "walk"],
@@ -458,9 +538,96 @@ describe("matching engine", () => {
     expect(strongCandidate).not.toBeNull();
     expect(weakCandidate).toBeNull();
 
-    const selected = selectGreedyPairs([strongCandidate!]);
+    const selected = selectStablePairs([strongCandidate!]);
 
     expect(selected.selected).toHaveLength(1);
     expect(selected.selected[0]?.right.userId).toBe("right-strong");
   });
+
+  it("builds stable pairs under weighted preference ordering", () => {
+    const femaleA = createParticipant({
+      answers: {
+        "q-single": "slow",
+      },
+      birthYear: 2001,
+      gender: "female",
+      id: "female-a",
+    });
+    const femaleB = createParticipant({
+      answers: {
+        "q-single": "slow",
+      },
+      birthYear: 2002,
+      gender: "female",
+      id: "female-b",
+    });
+    const maleA = createParticipant({
+      answers: {
+        "q-single": "slow",
+      },
+      birthYear: 2001,
+      gender: "male",
+      id: "male-a",
+    });
+    const maleB = createParticipant({
+      answers: {
+        "q-single": "slow",
+      },
+      birthYear: 2003,
+      gender: "male",
+      id: "male-b",
+    });
+
+    const candidates = [
+      {
+        comparableCount: 3,
+        left: femaleA,
+        previewText: "fa-ma",
+        reasons: ["r"],
+        right: maleA,
+        score: 100,
+        sharedSignals: [],
+      },
+      {
+        comparableCount: 3,
+        left: femaleA,
+        previewText: "fa-mb",
+        reasons: ["r"],
+        right: maleB,
+        score: 99,
+        sharedSignals: [],
+      },
+      {
+        comparableCount: 3,
+        left: femaleB,
+        previewText: "fb-ma",
+        reasons: ["r"],
+        right: maleA,
+        score: 98,
+        sharedSignals: [],
+      },
+      {
+        comparableCount: 3,
+        left: femaleB,
+        previewText: "fb-mb",
+        reasons: ["r"],
+        right: maleB,
+        score: 1,
+        sharedSignals: [],
+      },
+    ];
+
+    const result = selectStablePairs(candidates);
+    const pairs = result.selected
+      .map((candidate) =>
+        [candidate.left.participationId, candidate.right.participationId]
+          .sort()
+          .join(":"),
+      )
+      .sort();
+
+    expect(pairs).toEqual(["female-a:male-a", "female-b:male-b"]);
+    expect(result.usedParticipationIds.size).toBe(4);
+  });
+
 });
