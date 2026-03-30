@@ -43,3 +43,4 @@
 - 本快照来自数据库字段 match_batches.matching_policy_snapshot_json，不是测试默认值推断。
 - 若需要做 A/B 评估，请使用同一批输入分别运行旧策略和新策略，并对比匹配率、均分、稳定性违规数、解释覆盖率。
 - 可重复执行的查询模板见 reports/sql/export_matching_policy_snapshot.sql。
+- 算法详细说明与新增选择题适配指南见 reports/matching-algorithm-detailed-explanation-20260330.md。
