@@ -359,6 +359,12 @@ export interface Database {
           user_id: UUID;
         }[];
       };
+      count_active_submitted_questionnaire_users: {
+        Args: {
+          p_questionnaire_version_id: UUID;
+        };
+        Returns: number;
+      };
       current_user_email: {
         Args: Record<string, never>;
         Returns: string;

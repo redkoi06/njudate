@@ -12,34 +12,16 @@ export async function countActiveSubmittedQuestionnaireUsers(
     return 0;
   }
 
-  const { data: submissions, error: submissionsError } = await supabase
-    .from("questionnaire_submissions")
-    .select("user_id")
-    .eq("questionnaire_version_id", questionnaireVersionId)
-    .eq("status", "submitted");
+  const { data, error } = await supabase.rpc(
+    "count_active_submitted_questionnaire_users",
+    {
+      p_questionnaire_version_id: questionnaireVersionId,
+    },
+  );
 
-  if (submissionsError) {
-    throw submissionsError;
+  if (error) {
+    throw error;
   }
 
-  const userIds = [...new Set((submissions ?? []).map((item) => item.user_id))];
-
-  if (userIds.length === 0) {
-    return 0;
-  }
-
-  const { count, error: activeUsersError } = await supabase
-    .from("app_users")
-    .select("id", {
-      count: "exact",
-      head: true,
-    })
-    .in("id", userIds)
-    .neq("account_status", "deleted");
-
-  if (activeUsersError) {
-    throw activeUsersError;
-  }
-
-  return count ?? 0;
+  return Number(data ?? 0);
 }
