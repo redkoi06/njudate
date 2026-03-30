@@ -29,7 +29,7 @@ function authorizeRequest(request: Request) {
   return providedSecret === expectedSecret;
 }
 
-async function syncPublishedBatchEmails(batchId: string) {
+async function drainMatchResultEmailQueue() {
   const siteUrl = getRequiredEnv("NEXT_PUBLIC_SITE_URL");
   const secret = getRequiredEnv("INTERNAL_AUTOMATION_SECRET");
   const response = await fetch(
@@ -40,9 +40,7 @@ async function syncPublishedBatchEmails(batchId: string) {
         "content-type": "application/json",
         "x-internal-automation-secret": secret,
       },
-      body: JSON.stringify({
-        batchId,
-      }),
+      body: "{}",
     },
   );
 
@@ -68,7 +66,6 @@ function createEdgeLifecycleContext() {
   return {
     admin,
     actorRole: "system",
-    afterPublish: syncPublishedBatchEmails,
     createUuid: () => crypto.randomUUID(),
     nowIso: new Date().toISOString(),
   } satisfies BatchLifecycleContext;
@@ -89,6 +86,12 @@ Deno.serve(async (request) => {
     }
 
     const result = await runBatchAutomationSweep(createEdgeLifecycleContext());
+
+    try {
+      await drainMatchResultEmailQueue();
+    } catch (error) {
+      console.error("Match-result email sync failed", error);
+    }
 
     return new Response(JSON.stringify(result), {
       headers: getJsonHeaders(),

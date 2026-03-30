@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { getServerEnv } from "@/lib/env/server";
-import { syncPendingMatchResultEmails } from "@/lib/matching/batch-runner";
+import { drainMatchResultEmailQueue } from "@/lib/matching/batch-runner";
 
 function getAutomationSecret() {
   const env = getServerEnv();
@@ -41,22 +41,12 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const body = await request.json().catch(() => null);
-  const batchId = body && typeof body.batchId === "string" ? body.batchId : "";
-
-  if (!batchId) {
-    return NextResponse.json(
-      {
-        error: "batchId is required.",
-      },
-      { status: 400 },
-    );
-  }
-
-  await syncPendingMatchResultEmails(batchId);
+  const result = await drainMatchResultEmailQueue();
 
   return NextResponse.json({
-    batchId,
     ok: true,
+    attemptedCount: result.attemptedCount,
+    failedCount: result.failedCount,
+    sentCount: result.sentCount,
   });
 }

@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { createAdminSupabaseClientMock } = vi.hoisted(() => ({
-  createAdminSupabaseClientMock: vi.fn(),
-}));
+const { createAdminSupabaseClientMock, sendTransactionalEmailMock } =
+  vi.hoisted(() => ({
+    createAdminSupabaseClientMock: vi.fn(),
+    sendTransactionalEmailMock: vi.fn(),
+  }));
 
 vi.mock("server-only", () => ({}));
 
@@ -11,10 +13,11 @@ vi.mock("@/lib/supabase/admin", () => ({
 }));
 
 vi.mock("@/lib/email/send", () => ({
-  sendTransactionalEmail: vi.fn(),
+  sendTransactionalEmail: sendTransactionalEmailMock,
 }));
 
 import {
+  drainMatchResultEmailQueue,
   processBatch,
   resetInterruptedBatch,
   rerunFailedBatch,
@@ -28,6 +31,19 @@ type TestBatchStatus =
   | "open"
   | "processing"
   | "published";
+
+type ClaimedNotificationRow = {
+  body: string;
+  notification_id: string;
+  title: string;
+  user_id: string;
+};
+
+type AuthUserLookupRow = {
+  banned_until: string | null;
+  email: string | null;
+  user_id: string;
+};
 
 const MATCHING_POLICY = {
   minimumPairScore: 60,
@@ -170,13 +186,13 @@ class FakeQuery {
       label: this.state.batch.label,
       last_error_message: this.state.batch.last_error_message,
       match_run_at: this.state.batch.match_run_at,
+      matching_policy_snapshot_json:
+        this.state.batch.matching_policy_snapshot_json,
       processed_at: this.state.batch.processed_at,
+      questionnaire_version_id: this.state.batch.questionnaire_version_id,
       result_publish_at: this.state.batch.result_publish_at,
       signup_end_at: this.state.batch.signup_end_at,
       signup_start_at: this.state.batch.signup_start_at,
-      matching_policy_snapshot_json:
-        this.state.batch.matching_policy_snapshot_json,
-      questionnaire_version_id: this.state.batch.questionnaire_version_id,
       status: this.state.batch.status,
     };
   }
@@ -228,6 +244,7 @@ class FakeQuery {
         if (this.state.batch.status !== expectedStatus) {
           return { data: this.selectedColumns ? null : null, error: null };
         }
+
         if (
           this.hasFilter("is", "processed_at") &&
           this.state.batch.processed_at !== expectedProcessedAt
@@ -273,8 +290,8 @@ class FakeQuery {
 }
 
 function createBatchHarness(input: {
-  initialStatus: TestBatchStatus;
   initialProcessedAt?: string | null;
+  initialStatus: TestBatchStatus;
 }) {
   const state = {
     batch: {
@@ -298,11 +315,6 @@ function createBatchHarness(input: {
   };
 
   const client = {
-    auth: {
-      admin: {
-        getUserById: vi.fn(),
-      },
-    },
     from: vi.fn((table: string) => {
       if (table === "operation_logs") {
         return {
@@ -340,9 +352,87 @@ function createBatchHarness(input: {
   return { client, state };
 }
 
+function createEmailQueueHarness(input: {
+  authUsers: AuthUserLookupRow[];
+  claimedNotifications: ClaimedNotificationRow[];
+}) {
+  const state = {
+    claimArgs: null as { p_limit: number; p_reclaim_before: string } | null,
+    lookupArgs: null as { p_user_ids: string[] } | null,
+    notificationUpdates: [] as Array<{
+      id: string;
+      payload: {
+        email_claimed_at: null;
+        emailed_at: string | null;
+        email_status: string;
+      };
+    }>,
+  };
+
+  const getUserById = vi.fn();
+
+  const client = {
+    auth: {
+      admin: {
+        getUserById,
+      },
+    },
+    from: vi.fn((table: string) => {
+      if (table !== "notifications") {
+        throw new Error(`Unexpected queue table: ${table}`);
+      }
+
+      return {
+        update: (payload: {
+          email_claimed_at: null;
+          emailed_at: string | null;
+          email_status: string;
+        }) => ({
+          eq: vi.fn(async (_field: string, id: string) => {
+            state.notificationUpdates.push({ id, payload });
+            return { error: null };
+          }),
+        }),
+      };
+    }),
+    rpc: vi.fn(
+      async (
+        fn: string,
+        args:
+          | { p_limit: number; p_reclaim_before: string }
+          | { p_user_ids: string[] },
+      ) => {
+        if (fn === "claim_pending_match_result_email_notifications") {
+          state.claimArgs = args as { p_limit: number; p_reclaim_before: string };
+          return {
+            data: input.claimedNotifications,
+            error: null,
+          };
+        }
+
+        if (fn === "get_auth_users_by_ids") {
+          state.lookupArgs = args as { p_user_ids: string[] };
+          return {
+            data: input.authUsers.filter((row) =>
+              state.lookupArgs?.p_user_ids.includes(row.user_id),
+            ),
+            error: null,
+          };
+        }
+
+        throw new Error(`Unexpected queue rpc: ${fn}`);
+      },
+    ),
+  };
+
+  return { client, getUserById, state };
+}
+
 describe("batch runner", () => {
   beforeEach(() => {
     createAdminSupabaseClientMock.mockReset();
+    sendTransactionalEmailMock.mockReset();
+    vi.useRealTimers();
   });
 
   it("claims a locked batch only once and skips the second processing attempt", async () => {
@@ -394,8 +484,8 @@ describe("batch runner", () => {
 
   it("does not reset a processing batch that has already finished computation", async () => {
     const harness = createBatchHarness({
-      initialStatus: "processing",
       initialProcessedAt: "2026-03-25T12:00:00.000Z",
+      initialStatus: "processing",
     });
 
     createAdminSupabaseClientMock.mockReturnValue(harness.client);
@@ -441,5 +531,177 @@ describe("batch runner", () => {
     expect(harness.state.batch.status).toBe("failed");
     expect(harness.state.deleteResultsCalls).toBe(0);
     expect(harness.state.deletePairsCalls).toBe(0);
+  });
+
+  it("drains the queue in chunks of five after claiming up to fifty emails", async () => {
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const claimedNotifications = Array.from({ length: 12 }, (_, index) => ({
+      body: `body-${index + 1}`,
+      notification_id: `notification-${index + 1}`,
+      title: `title-${index + 1}`,
+      user_id: `user-${index + 1}`,
+    }));
+    const harness = createEmailQueueHarness({
+      authUsers: claimedNotifications.map((notification, index) => ({
+        banned_until: null,
+        email: `user-${index + 1}@smail.nju.edu.cn`,
+        user_id: notification.user_id,
+      })),
+      claimedNotifications,
+    });
+
+    createAdminSupabaseClientMock.mockReturnValue(harness.client);
+    sendTransactionalEmailMock.mockImplementation(
+      async (_input: { text: string; to: string; subject: string }) => {
+        inFlight += 1;
+        maxInFlight = Math.max(maxInFlight, inFlight);
+        await Promise.resolve();
+        inFlight -= 1;
+
+        return {
+          ok: true,
+          reason: null,
+        };
+      },
+    );
+
+    const result = await drainMatchResultEmailQueue();
+
+    expect(result).toEqual({
+      attemptedCount: 12,
+      failedCount: 0,
+      sentCount: 12,
+    });
+    expect(harness.state.claimArgs).toEqual({
+      p_limit: 50,
+      p_reclaim_before: expect.any(String),
+    });
+    expect(harness.state.lookupArgs).toEqual({
+      p_user_ids: claimedNotifications.map((notification) => notification.user_id),
+    });
+    expect(sendTransactionalEmailMock).toHaveBeenCalledTimes(12);
+    expect(harness.client.rpc).toHaveBeenCalledTimes(2);
+    expect(harness.getUserById).not.toHaveBeenCalled();
+    expect(maxInFlight).toBe(5);
+    expect(harness.state.notificationUpdates).toHaveLength(12);
+    expect(
+      harness.state.notificationUpdates.every(
+        (update) =>
+          update.payload.email_status === "sent" &&
+          typeof update.payload.emailed_at === "string" &&
+          update.payload.email_claimed_at === null,
+      ),
+    ).toBe(true);
+  });
+
+  it("marks notifications as failed when email addresses are missing or sends fail", async () => {
+    const claimedNotifications = [
+      {
+        body: "body-1",
+        notification_id: "notification-1",
+        title: "title-1",
+        user_id: "user-1",
+      },
+      {
+        body: "body-2",
+        notification_id: "notification-2",
+        title: "title-2",
+        user_id: "user-2",
+      },
+      {
+        body: "body-3",
+        notification_id: "notification-3",
+        title: "title-3",
+        user_id: "user-3",
+      },
+    ];
+    const harness = createEmailQueueHarness({
+      authUsers: [
+        {
+          banned_until: null,
+          email: "user-1@smail.nju.edu.cn",
+          user_id: "user-1",
+        },
+        {
+          banned_until: null,
+          email: "user-2@smail.nju.edu.cn",
+          user_id: "user-2",
+        },
+      ],
+      claimedNotifications,
+    });
+
+    createAdminSupabaseClientMock.mockReturnValue(harness.client);
+    sendTransactionalEmailMock.mockImplementation(
+      async (input: { text: string; to: string; subject: string }) => ({
+        ok: input.to !== "user-2@smail.nju.edu.cn",
+        reason:
+          input.to === "user-2@smail.nju.edu.cn" ? "smtp_error" : null,
+      }),
+    );
+
+    const result = await drainMatchResultEmailQueue();
+
+    expect(result).toEqual({
+      attemptedCount: 3,
+      failedCount: 2,
+      sentCount: 1,
+    });
+    expect(sendTransactionalEmailMock).toHaveBeenCalledTimes(2);
+    expect(harness.getUserById).not.toHaveBeenCalled();
+    expect(harness.state.notificationUpdates).toHaveLength(3);
+    expect(harness.state.notificationUpdates).toEqual(
+      expect.arrayContaining([
+        {
+          id: "notification-1",
+          payload: {
+            email_claimed_at: null,
+            emailed_at: expect.any(String),
+            email_status: "sent",
+          },
+        },
+        {
+          id: "notification-2",
+          payload: {
+            email_claimed_at: null,
+            emailed_at: null,
+            email_status: "failed",
+          },
+        },
+        {
+          id: "notification-3",
+          payload: {
+            email_claimed_at: null,
+            emailed_at: null,
+            email_status: "failed",
+          },
+        },
+      ]),
+    );
+  });
+
+  it("uses a ten-minute reclaim cutoff when claiming pending emails", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-30T10:00:00.000Z"));
+    const harness = createEmailQueueHarness({
+      authUsers: [],
+      claimedNotifications: [],
+    });
+
+    createAdminSupabaseClientMock.mockReturnValue(harness.client);
+
+    await expect(drainMatchResultEmailQueue()).resolves.toEqual({
+      attemptedCount: 0,
+      failedCount: 0,
+      sentCount: 0,
+    });
+
+    expect(harness.state.claimArgs).toEqual({
+      p_limit: 50,
+      p_reclaim_before: "2026-03-30T09:50:00.000Z",
+    });
+    expect(sendTransactionalEmailMock).not.toHaveBeenCalled();
+    expect(harness.client.rpc).toHaveBeenCalledTimes(1);
   });
 });

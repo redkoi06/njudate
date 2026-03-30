@@ -65,6 +65,8 @@ import {
   runBatchNowAction,
 } from "@/features/admin/batches/actions";
 
+const VALID_BATCH_ID = "11111111-1111-4111-8111-111111111111";
+
 function getQueryParam(url: string, key: string) {
   const [, queryWithHash = ""] = url.split("?");
   const [query = ""] = queryWithHash.split("#");
@@ -303,7 +305,7 @@ describe("admin batch actions", () => {
     });
 
     const formData = new FormData();
-    formData.set("batchId", "batch-1");
+    formData.set("batchId", VALID_BATCH_ID);
 
     const redirectUrl = await captureRedirect(openBatchSignupAction(formData));
 
@@ -321,7 +323,7 @@ describe("admin batch actions", () => {
     });
 
     const formData = new FormData();
-    formData.set("batchId", "batch-1");
+    formData.set("batchId", VALID_BATCH_ID);
 
     const redirectUrl = await captureRedirect(lockBatchAction(formData));
 
@@ -350,7 +352,7 @@ describe("admin batch actions", () => {
     });
 
     const formData = new FormData();
-    formData.set("batchId", "batch-1");
+    formData.set("batchId", VALID_BATCH_ID);
 
     const redirectUrl = await captureRedirect(runBatchNowAction(formData));
 
@@ -381,7 +383,7 @@ describe("admin batch actions", () => {
     });
 
     const formData = new FormData();
-    formData.set("batchId", "batch-1");
+    formData.set("batchId", VALID_BATCH_ID);
 
     const redirectUrl = await captureRedirect(publishBatchNowAction(formData));
 

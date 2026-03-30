@@ -20,7 +20,7 @@ describe("SettingsForm", () => {
 
     const saveButton = screen.getByRole("button", { name: "保存设置" });
     const matchResult = screen.getByRole("checkbox", {
-      name: "匹配结果提醒",
+      name: "匹配结果与联系方式开放提醒",
     });
 
     expect(saveButton).toBeDisabled();

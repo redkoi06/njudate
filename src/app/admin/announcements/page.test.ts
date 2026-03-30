@@ -19,6 +19,8 @@ vi.mock("@/features/admin/announcements/data", () => ({
 
 import AdminAnnouncementsPage from "@/app/admin/announcements/page";
 
+const VALID_ARCHIVED_ANNOUNCEMENT_ID = "77777777-7777-4777-8777-777777777777";
+
 describe("AdminAnnouncementsPage", () => {
   beforeEach(() => {
     getAnnouncementForEditMock.mockReset();
@@ -87,7 +89,7 @@ describe("AdminAnnouncementsPage", () => {
   it("does not enter edit mode for a non-draft announcement", async () => {
     listAnnouncementsMock.mockResolvedValue([]);
     getAnnouncementForEditMock.mockResolvedValue({
-      id: "archived-1",
+      id: VALID_ARCHIVED_ANNOUNCEMENT_ID,
       title: "已归档公告",
       body: "body",
       eyebrow: "眉题",
@@ -103,7 +105,7 @@ describe("AdminAnnouncementsPage", () => {
 
     render(
       await AdminAnnouncementsPage({
-        searchParams: Promise.resolve({ edit: "archived-1" }),
+        searchParams: Promise.resolve({ edit: VALID_ARCHIVED_ANNOUNCEMENT_ID }),
       }),
     );
 

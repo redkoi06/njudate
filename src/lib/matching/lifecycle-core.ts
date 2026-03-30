@@ -53,15 +53,9 @@ type MatchingQuestionRow = Pick<
   | "weight"
 >;
 
-type NotificationRow = Pick<
-  Database["public"]["Tables"]["notifications"]["Row"],
-  "body" | "id" | "source_id" | "title" | "user_id"
->;
-
 export type BatchLifecycleContext = {
   admin: AdminClientLike;
   actorRole?: OperationActorRole | undefined;
-  afterPublish?: ((batchId: string) => Promise<void>) | undefined;
   createUuid?: (() => string) | undefined;
   nowIso: string;
 };
@@ -842,18 +836,6 @@ export async function publishBatch(
     });
     throw error;
   }
-
-  try {
-    await context.afterPublish?.(batchId);
-  } catch (error) {
-    await writeOperationLog(context, {
-      actionType: "batch_publish_email_sync_failed",
-      entityId: batchId,
-      payloadJson: {
-        error_message: getErrorMessage(error),
-      },
-    });
-  }
 }
 
 export async function resetInterruptedBatch(
@@ -892,60 +874,6 @@ export async function resetInterruptedBatch(
   });
 
   return true;
-}
-
-export async function syncMatchResultNotifications(
-  context: BatchLifecycleContext,
-  input: {
-    batchId: string;
-    deliver: (notification: NotificationRow) => Promise<void>;
-    markNotificationFailed: (notificationId: string) => Promise<void>;
-  },
-) {
-  const { data: results, error: resultsError } = await context.admin
-    .from("match_results")
-    .select("id")
-    .eq("batch_id", input.batchId)
-    .not("released_at", "is", null);
-
-  if (resultsError) {
-    throw resultsError;
-  }
-
-  const resultIds = (results ?? []).flatMap((result: { id: string }) =>
-    typeof result.id === "string" ? [result.id] : [],
-  );
-
-  if (resultIds.length === 0) {
-    return;
-  }
-
-  const { data: notifications, error: notificationsError } = await context.admin
-    .from("notifications")
-    .select("id, source_id, title, body, user_id")
-    .eq("source_type", MATCH_SOURCE_TYPE)
-    .eq("email_status", "pending")
-    .in("source_id", resultIds);
-
-  if (notificationsError) {
-    throw notificationsError;
-  }
-
-  for (const notification of notifications ?? []) {
-    try {
-      await input.deliver(notification as NotificationRow);
-    } catch (error) {
-      await input.markNotificationFailed(notification.id);
-      await writeOperationLog(context, {
-        actionType: "batch_publish_email_failed",
-        entityId: input.batchId,
-        payloadJson: {
-          notification_id: notification.id,
-          error_message: getErrorMessage(error),
-        },
-      });
-    }
-  }
 }
 
 export async function advanceBatchByTime(

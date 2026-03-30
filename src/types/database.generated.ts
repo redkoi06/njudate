@@ -199,8 +199,9 @@ export interface Database {
           body: string;
           category: string;
           created_at: Timestamp;
+          email_claimed_at: Timestamp | null;
           emailed_at: Timestamp | null;
-          email_status: "not_needed" | "pending" | "sent" | "failed";
+          email_status: "not_needed" | "pending" | "sending" | "sent" | "failed";
           id: UUID;
           is_read: boolean;
           level: "info" | "success" | "warning";
@@ -346,6 +347,18 @@ export interface Database {
         Args: Record<string, never>;
         Returns: UUID;
       };
+      claim_pending_match_result_email_notifications: {
+        Args: {
+          p_limit: number;
+          p_reclaim_before: Timestamp;
+        };
+        Returns: {
+          body: string;
+          notification_id: UUID;
+          title: string;
+          user_id: UUID;
+        }[];
+      };
       current_user_email: {
         Args: Record<string, never>;
         Returns: string;
@@ -353,6 +366,16 @@ export interface Database {
       delete_my_account: {
         Args: Record<string, never>;
         Returns: Json;
+      };
+      get_auth_users_by_ids: {
+        Args: {
+          p_user_ids: UUID[];
+        };
+        Returns: {
+          banned_until: Timestamp | null;
+          email: string | null;
+          user_id: UUID;
+        }[];
       };
       get_allowed_email_domains: {
         Args: Record<string, never>;

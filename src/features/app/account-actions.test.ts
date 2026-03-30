@@ -61,6 +61,11 @@ import {
   triggerMatchContactAction,
 } from "@/features/app/actions";
 
+const VALID_MATCH_RESULT_ID = "33333333-3333-4333-8333-333333333333";
+const VALID_MATCH_PAIR_ID = "44444444-4444-4444-8444-444444444444";
+const VALID_BATCH_ID = "55555555-5555-4555-8555-555555555555";
+const VALID_NOTIFICATION_ID = "66666666-6666-4666-8666-666666666666";
+
 function getQueryParam(url: string, key: string) {
   const [, query = ""] = url.split("?");
   return new URLSearchParams(query).get(key);
@@ -446,10 +451,10 @@ describe("account actions", () => {
   });
 
   it("keeps the user on the current match detail page after triggering contact", async () => {
-    const matchResultId = "result-1";
-    const matchPairId = "pair-1";
+    const matchResultId = VALID_MATCH_RESULT_ID;
+    const matchPairId = VALID_MATCH_PAIR_ID;
     const matchResultLookup = createMaybeSingleBuilder({
-      batch_id: "batch-1",
+      batch_id: VALID_BATCH_ID,
     });
     const batchLookup = createSingleBuilder({
       round_no: 6,
@@ -457,7 +462,7 @@ describe("account actions", () => {
     });
     const notificationInsertSingleMock = vi
       .fn()
-      .mockResolvedValue({ data: { id: "notification-1" }, error: null });
+      .mockResolvedValue({ data: { id: VALID_NOTIFICATION_ID }, error: null });
     const notificationSelectMock = vi.fn().mockReturnValue({
       single: notificationInsertSingleMock,
     });
@@ -598,19 +603,19 @@ describe("account actions", () => {
       },
     });
     rpcMock.mockResolvedValue({
-      data: "notification-1",
+      data: VALID_NOTIFICATION_ID,
       error: null,
     });
 
     const formData = new FormData();
-    formData.set("notificationId", "notification-1");
+    formData.set("notificationId", VALID_NOTIFICATION_ID);
 
     const redirectUrl = await captureRedirect(
       markNotificationReadAction(formData),
     );
 
     expect(rpcMock).toHaveBeenCalledWith("mark_notification_read", {
-      p_notification_id: "notification-1",
+      p_notification_id: VALID_NOTIFICATION_ID,
     });
     expect(redirectUrl).toBe("/app/dashboard");
   });
