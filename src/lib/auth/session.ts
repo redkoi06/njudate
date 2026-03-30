@@ -18,6 +18,15 @@ function redirectDeletedAccount(): never {
   );
 }
 
+async function signOutAndRedirectProvisionFailure(
+  supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
+): Promise<never> {
+  await supabase.auth.signOut();
+  redirect(
+    `/login?error=${encodeURIComponent(ACCOUNT_PROVISION_FAILED_ERROR_MESSAGE)}`,
+  );
+}
+
 const getSessionAppUserRecord = cache(async (userId: string) => {
   const supabase = await createServerSupabaseClient();
   const { data, error } = await supabase
@@ -39,7 +48,7 @@ const getSessionAppUserRecord = cache(async (userId: string) => {
   );
 
   if (provisionError) {
-    throw provisionError;
+    return { appUser: null, supabase };
   }
 
   const { data: provisionedUser, error: refetchError } = await supabase
@@ -89,10 +98,7 @@ export async function requireSessionUser() {
   const { appUser, supabase } = await getSessionAppUserRecord(user.id);
 
   if (!appUser) {
-    await supabase.auth.signOut();
-    redirect(
-      `/login?error=${encodeURIComponent(ACCOUNT_PROVISION_FAILED_ERROR_MESSAGE)}`,
-    );
+    await signOutAndRedirectProvisionFailure(supabase);
   }
 
   if (appUser?.account_status === "deleted" || appUser?.deleted_at) {
@@ -126,6 +132,7 @@ export async function getCurrentSessionHomePath() {
     return "/login";
   }
 
+  await requireSessionUser();
   const role = await getCurrentAppRole(user.id);
   return role ? getDefaultHomePathForRole(role) : "/app";
 }
