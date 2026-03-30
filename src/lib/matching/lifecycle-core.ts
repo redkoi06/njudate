@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import {
   buildPairCandidates,
-  selectGreedyPairs,
+  selectStablePairs,
   type MatchingParticipant,
   type MatchingProfileSnapshot,
   type MatchingQuestion,
@@ -609,7 +609,7 @@ async function processClaimedBatch(
     });
 
     const { selected, usedParticipationIds } =
-      selectGreedyPairs(pairCandidates);
+      selectStablePairs(pairCandidates);
     const createUuid = getCreateUuid(context);
 
     if (selected.length > 0) {

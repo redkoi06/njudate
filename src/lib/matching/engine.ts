@@ -27,13 +27,38 @@ export type MatchingParticipant = {
 };
 
 type CandidateReason = {
+  category: "profile" | "question";
   reason: string;
   score: number;
   signal?: string;
+  weightedContribution: number;
+};
+
+type PairExplain = {
+  scoreBreakdown: {
+    profileWeight: number;
+    profileWeightedScore: number;
+    questionWeight: number;
+    questionWeightedScore: number;
+    totalWeight: number;
+    weightedScore: number;
+  };
+  tieBreak: {
+    deterministicKey: string;
+    signalCount: number;
+    strengthScore: number;
+  };
+  topContributors: {
+    category: "profile" | "question";
+    reason: string;
+    score: number;
+    weightedContribution: number;
+  }[];
 };
 
 export type PairCandidate = {
   comparableCount: number;
+  explain?: PairExplain;
   left: MatchingParticipant;
   previewText: string;
   reasons: string[];
@@ -49,8 +74,14 @@ type QuestionComparison = {
 };
 
 const AGE_PREFERENCE_QUESTION_CODE = "q-age-preference";
+const LONG_DISTANCE_ACCEPTANCE_QUESTION_CODE = "q-long-distance-acceptance";
 
 type AgePreferenceAnswer = "older" | "same-age" | "younger" | "soul-match";
+type LongDistanceAcceptanceAnswer =
+  | "same-city-only"
+  | "short-term-ok"
+  | "long-term-ok"
+  | "depends-on-feelings";
 
 function getOptionMap(question: MatchingQuestion) {
   return new Map(question.options.map((option) => [option.id, option.label]));
@@ -196,6 +227,47 @@ function getAgePreferenceSatisfaction(input: {
   }
 }
 
+function isLongDistanceAcceptanceAnswer(
+  value: string,
+): value is LongDistanceAcceptanceAnswer {
+  return (
+    value === "same-city-only" ||
+    value === "short-term-ok" ||
+    value === "long-term-ok" ||
+    value === "depends-on-feelings"
+  );
+}
+
+function getLongDistanceAcceptanceLevel(answer: LongDistanceAcceptanceAnswer) {
+  switch (answer) {
+    case "same-city-only":
+      return 0;
+    case "short-term-ok":
+      return 1;
+    case "long-term-ok":
+      return 2;
+    case "depends-on-feelings":
+      return 1.5;
+  }
+}
+
+function isCrossCampusBlockedByLongDistance(
+  left: MatchingParticipant,
+  right: MatchingParticipant,
+) {
+  const leftCampus = left.profileSnapshot.campus;
+  const rightCampus = right.profileSnapshot.campus;
+
+  if (!leftCampus || !rightCampus || leftCampus === rightCampus) {
+    return false;
+  }
+
+  const leftAnswer = left.answers[LONG_DISTANCE_ACCEPTANCE_QUESTION_CODE];
+  const rightAnswer = right.answers[LONG_DISTANCE_ACCEPTANCE_QUESTION_CODE];
+
+  return leftAnswer === "same-city-only" && rightAnswer === "same-city-only";
+}
+
 function compareSpecialQuestion(input: {
   left: MatchingParticipant;
   leftAnswer: string | string[] | number | undefined;
@@ -203,44 +275,70 @@ function compareSpecialQuestion(input: {
   right: MatchingParticipant;
   rightAnswer: string | string[] | number | undefined;
 }) {
-  if (input.question.questionCode !== AGE_PREFERENCE_QUESTION_CODE) {
+  if (input.question.questionCode === AGE_PREFERENCE_QUESTION_CODE) {
+    if (
+      typeof input.leftAnswer !== "string" ||
+      typeof input.rightAnswer !== "string" ||
+      !isAgePreferenceAnswer(input.leftAnswer) ||
+      !isAgePreferenceAnswer(input.rightAnswer)
+    ) {
+      return null;
+    }
+
+    const leftBirthYear = input.left.profileSnapshot.birth_year;
+    const rightBirthYear = input.right.profileSnapshot.birth_year;
+
+    if (
+      typeof leftBirthYear !== "number" ||
+      typeof rightBirthYear !== "number" ||
+      !Number.isInteger(leftBirthYear) ||
+      !Number.isInteger(rightBirthYear)
+    ) {
+      return null;
+    }
+
+    const leftSatisfaction = getAgePreferenceSatisfaction({
+      counterpartBirthYear: rightBirthYear,
+      preference: input.leftAnswer,
+      selfBirthYear: leftBirthYear,
+    });
+    const rightSatisfaction = getAgePreferenceSatisfaction({
+      counterpartBirthYear: leftBirthYear,
+      preference: input.rightAnswer,
+      selfBirthYear: rightBirthYear,
+    });
+
+    return {
+      score: leftSatisfaction * rightSatisfaction,
+    } satisfies QuestionComparison;
+  }
+
+  if (input.question.questionCode !== LONG_DISTANCE_ACCEPTANCE_QUESTION_CODE) {
     return null;
   }
 
   if (
     typeof input.leftAnswer !== "string" ||
     typeof input.rightAnswer !== "string" ||
-    !isAgePreferenceAnswer(input.leftAnswer) ||
-    !isAgePreferenceAnswer(input.rightAnswer)
+    !isLongDistanceAcceptanceAnswer(input.leftAnswer) ||
+    !isLongDistanceAcceptanceAnswer(input.rightAnswer)
   ) {
     return null;
   }
 
-  const leftBirthYear = input.left.profileSnapshot.birth_year;
-  const rightBirthYear = input.right.profileSnapshot.birth_year;
+  const leftCampus = input.left.profileSnapshot.campus;
+  const rightCampus = input.right.profileSnapshot.campus;
+  const isCrossCampus =
+    Boolean(leftCampus && rightCampus) && leftCampus !== rightCampus;
+  const leftLevel = getLongDistanceAcceptanceLevel(input.leftAnswer);
+  const rightLevel = getLongDistanceAcceptanceLevel(input.rightAnswer);
 
-  if (
-    typeof leftBirthYear !== "number" ||
-    typeof rightBirthYear !== "number" ||
-    !Number.isInteger(leftBirthYear) ||
-    !Number.isInteger(rightBirthYear)
-  ) {
-    return null;
-  }
-
-  const leftSatisfaction = getAgePreferenceSatisfaction({
-    counterpartBirthYear: rightBirthYear,
-    preference: input.leftAnswer,
-    selfBirthYear: leftBirthYear,
-  });
-  const rightSatisfaction = getAgePreferenceSatisfaction({
-    counterpartBirthYear: leftBirthYear,
-    preference: input.rightAnswer,
-    selfBirthYear: rightBirthYear,
-  });
+  const hardGateScore =
+    isCrossCampus && leftLevel === 0 && rightLevel === 0 ? 0 : 1;
+  const preferenceScore = 1 - Math.abs(leftLevel - rightLevel) / 2;
 
   return {
-    score: leftSatisfaction * rightSatisfaction,
+    score: hardGateScore * preferenceScore,
   } satisfies QuestionComparison;
 }
 
@@ -297,10 +395,7 @@ function passesHardProfileConstraints(
     return false;
   }
 
-  const leftCampus = left.profileSnapshot.campus;
-  const rightCampus = right.profileSnapshot.campus;
-
-  return Boolean(leftCampus && rightCampus && leftCampus === rightCampus);
+  return true;
 }
 
 function evaluateProfileFilters(
@@ -334,10 +429,6 @@ function evaluateProfileRule(
   let weightedScore = 0;
 
   policy.profileScoring.forEach((rule) => {
-    if (rule.field === "campus") {
-      return;
-    }
-
     totalWeight += rule.weight;
 
     if (rule.mode === "same_bonus") {
@@ -349,9 +440,11 @@ function evaluateProfileRule(
 
       if (score > 0) {
         reasons.push({
+          category: "profile",
           reason: `你们在${rule.field}上保持一致。`,
           score,
           signal: String(leftValue),
+          weightedContribution: score * rule.weight,
         });
       }
 
@@ -377,8 +470,10 @@ function evaluateProfileRule(
 
     if (score > 0) {
       reasons.push({
+        category: "profile",
         reason: "你们的年龄差处于当前策略允许的范围内。",
         score,
+        weightedContribution: score * rule.weight,
       });
     }
   });
@@ -405,9 +500,15 @@ export function buildPairCandidate(input: {
     return null;
   }
 
+  if (isCrossCampusBlockedByLongDistance(left, right)) {
+    return null;
+  }
+
   let totalWeight = 0;
   let weightedScore = 0;
   let comparableCount = 0;
+  let questionWeight = 0;
+  let questionWeightedScore = 0;
   const reasons: CandidateReason[] = [];
 
   const profileResult = evaluateProfileRule(matchingPolicy, left, right, reasons);
@@ -424,6 +525,8 @@ export function buildPairCandidate(input: {
     comparableCount += 1;
     totalWeight += question.weight;
     weightedScore += comparison.score * question.weight;
+    questionWeight += question.weight;
+    questionWeightedScore += comparison.score * question.weight;
 
     if (comparison.reason) {
       const signal =
@@ -432,9 +535,11 @@ export function buildPairCandidate(input: {
           : undefined;
 
       reasons.push({
+        category: "question",
         reason: comparison.reason,
         score: comparison.score,
         ...(signal ? { signal } : {}),
+        weightedContribution: comparison.score * question.weight,
       });
     }
   });
@@ -453,7 +558,19 @@ export function buildPairCandidate(input: {
   }
 
   const rankedReasons = reasons
-    .sort((leftReason, rightReason) => rightReason.score - leftReason.score)
+    .sort((leftReason, rightReason) => {
+      if (rightReason.score !== leftReason.score) {
+        return rightReason.score - leftReason.score;
+      }
+
+      if (
+        rightReason.weightedContribution !== leftReason.weightedContribution
+      ) {
+        return rightReason.weightedContribution - leftReason.weightedContribution;
+      }
+
+      return leftReason.reason.localeCompare(rightReason.reason);
+    })
     .slice(0, 5);
 
   const reasonTexts = rankedReasons.map((item) => item.reason);
@@ -471,8 +588,40 @@ export function buildPairCandidate(input: {
     reasonTexts.push(fallback);
   }
 
+  const strengthScore =
+    totalWeight > 0
+      ? Math.round((weightedScore / totalWeight) * 1000) / 1000
+      : 0;
+  const deterministicKey = [
+    left.participationId,
+    right.participationId,
+  ]
+    .sort()
+    .join(":");
+
   return {
     comparableCount,
+    explain: {
+      scoreBreakdown: {
+        profileWeight: profileResult.totalWeight,
+        profileWeightedScore: profileResult.weightedScore,
+        questionWeight,
+        questionWeightedScore,
+        totalWeight,
+        weightedScore,
+      },
+      tieBreak: {
+        deterministicKey,
+        signalCount: sharedSignals.length,
+        strengthScore,
+      },
+      topContributors: rankedReasons.map((item) => ({
+        category: item.category,
+        reason: item.reason,
+        score: item.score,
+        weightedContribution: item.weightedContribution,
+      })),
+    },
     left,
     previewText:
       reasonTexts[0] ??
@@ -482,6 +631,14 @@ export function buildPairCandidate(input: {
     score,
     sharedSignals: sharedSignals.slice(0, 5),
   } satisfies PairCandidate;
+}
+
+function getExplainStrengthScore(candidate: PairCandidate) {
+  return candidate.explain?.tieBreak.strengthScore ?? candidate.score / 100;
+}
+
+function getExplainSignalCount(candidate: PairCandidate) {
+  return candidate.explain?.tieBreak.signalCount ?? candidate.sharedSignals.length;
 }
 
 export function buildPairCandidates(input: {
@@ -520,36 +677,264 @@ export function buildPairCandidates(input: {
   return candidates;
 }
 
-export function selectGreedyPairs(candidates: PairCandidate[]) {
+function getCounterpartParticipationId(
+  candidate: PairCandidate,
+  participationId: string,
+) {
+  return candidate.left.participationId === participationId
+    ? candidate.right.participationId
+    : candidate.left.participationId;
+}
+
+function compareCandidateForParticipant(
+  left: PairCandidate,
+  right: PairCandidate,
+  participationId: string,
+) {
+  if (right.score !== left.score) {
+    return right.score - left.score;
+  }
+
+  if (right.comparableCount !== left.comparableCount) {
+    return right.comparableCount - left.comparableCount;
+  }
+
+  const rightStrength = getExplainStrengthScore(right);
+  const leftStrength = getExplainStrengthScore(left);
+
+  if (rightStrength !== leftStrength) {
+    return rightStrength - leftStrength;
+  }
+
+  const rightSignalCount = getExplainSignalCount(right);
+  const leftSignalCount = getExplainSignalCount(left);
+
+  if (rightSignalCount !== leftSignalCount) {
+    return rightSignalCount - leftSignalCount;
+  }
+
+  return getCounterpartParticipationId(left, participationId).localeCompare(
+    getCounterpartParticipationId(right, participationId),
+  );
+}
+
+export function selectStablePairs(candidates: PairCandidate[]) {
   const usedParticipationIds = new Set<string>();
   const selected: PairCandidate[] = [];
 
-  candidates
-    .sort((left, right) => {
-      if (right.score !== left.score) {
-        return right.score - left.score;
-      }
+  if (candidates.length === 0) {
+    return {
+      selected,
+      usedParticipationIds,
+    };
+  }
 
-      if (right.comparableCount !== left.comparableCount) {
-        return right.comparableCount - left.comparableCount;
-      }
+  const participantById = new Map<
+    string,
+    { gender: string; participationId: string }
+  >();
 
-      return `${left.left.participationId}-${left.right.participationId}`.localeCompare(
-        `${right.left.participationId}-${right.right.participationId}`,
-      );
-    })
-    .forEach((candidate) => {
-      if (
-        usedParticipationIds.has(candidate.left.participationId) ||
-        usedParticipationIds.has(candidate.right.participationId)
-      ) {
-        return;
-      }
+  candidates.forEach((candidate) => {
+    const leftGender = candidate.left.profileSnapshot.gender;
+    const rightGender = candidate.right.profileSnapshot.gender;
 
-      usedParticipationIds.add(candidate.left.participationId);
-      usedParticipationIds.add(candidate.right.participationId);
-      selected.push(candidate);
+    if (typeof leftGender === "string") {
+      participantById.set(candidate.left.participationId, {
+        gender: leftGender,
+        participationId: candidate.left.participationId,
+      });
+    }
+
+    if (typeof rightGender === "string") {
+      participantById.set(candidate.right.participationId, {
+        gender: rightGender,
+        participationId: candidate.right.participationId,
+      });
+    }
+  });
+
+  const groups = new Map<string, string[]>();
+  participantById.forEach((participant) => {
+    const current = groups.get(participant.gender);
+
+    if (current) {
+      current.push(participant.participationId);
+      return;
+    }
+
+    groups.set(participant.gender, [participant.participationId]);
+  });
+
+  if (groups.size !== 2) {
+    return {
+      selected,
+      usedParticipationIds,
+    };
+  }
+
+  const sortedGroups = [...groups.entries()].sort((left, right) =>
+    left[0].localeCompare(right[0]),
+  );
+  const firstGroup = sortedGroups[0]?.[1] ?? [];
+  const secondGroup = sortedGroups[1]?.[1] ?? [];
+  const proposerIds =
+    firstGroup.length <= secondGroup.length ? firstGroup : secondGroup;
+  const receiverIds = proposerIds === firstGroup ? secondGroup : firstGroup;
+  const receiverIdSet = new Set(receiverIds);
+
+  const candidateByPair = new Map<string, PairCandidate>();
+  const proposerPreferences = new Map<string, string[]>();
+  const receiverRank = new Map<string, Map<string, number>>();
+
+  const buildPairKey = (leftId: string, rightId: string) =>
+    leftId < rightId ? `${leftId}:${rightId}` : `${rightId}:${leftId}`;
+
+  const appendPreference = (
+    map: Map<string, PairCandidate[]>,
+    ownerId: string,
+    candidate: PairCandidate,
+  ) => {
+    const current = map.get(ownerId);
+
+    if (current) {
+      current.push(candidate);
+      return;
+    }
+
+    map.set(ownerId, [candidate]);
+  };
+
+  const proposerCandidateMap = new Map<string, PairCandidate[]>();
+  const receiverCandidateMap = new Map<string, PairCandidate[]>();
+
+  candidates.forEach((candidate) => {
+    const leftId = candidate.left.participationId;
+    const rightId = candidate.right.participationId;
+    const key = buildPairKey(leftId, rightId);
+
+    candidateByPair.set(key, candidate);
+
+    if (receiverIdSet.has(rightId) && !receiverIdSet.has(leftId)) {
+      appendPreference(proposerCandidateMap, leftId, candidate);
+      appendPreference(receiverCandidateMap, rightId, candidate);
+      return;
+    }
+
+    if (receiverIdSet.has(leftId) && !receiverIdSet.has(rightId)) {
+      appendPreference(proposerCandidateMap, rightId, candidate);
+      appendPreference(receiverCandidateMap, leftId, candidate);
+    }
+  });
+
+  proposerCandidateMap.forEach((candidateList, proposerId) => {
+    candidateList.sort((left, right) =>
+      compareCandidateForParticipant(left, right, proposerId),
+    );
+
+    proposerPreferences.set(
+      proposerId,
+      candidateList.map((candidate) =>
+        getCounterpartParticipationId(candidate, proposerId),
+      ),
+    );
+  });
+
+  receiverCandidateMap.forEach((candidateList, receiverId) => {
+    candidateList.sort((left, right) =>
+      compareCandidateForParticipant(left, right, receiverId),
+    );
+
+    const rankMap = new Map<string, number>();
+
+    candidateList.forEach((candidate, index) => {
+      rankMap.set(getCounterpartParticipationId(candidate, receiverId), index);
     });
+
+    receiverRank.set(receiverId, rankMap);
+  });
+
+  const freeProposers = proposerIds.filter((proposerId) =>
+    proposerPreferences.has(proposerId),
+  );
+  const nextProposalIndex = new Map<string, number>();
+  const engagedByReceiver = new Map<string, string>();
+
+  while (freeProposers.length > 0) {
+    const proposerId = freeProposers.shift();
+
+    if (!proposerId) {
+      continue;
+    }
+
+    const preferenceList = proposerPreferences.get(proposerId) ?? [];
+    const startIndex = nextProposalIndex.get(proposerId) ?? 0;
+    let accepted = false;
+
+    for (
+      let preferenceIndex = startIndex;
+      preferenceIndex < preferenceList.length;
+      preferenceIndex += 1
+    ) {
+      nextProposalIndex.set(proposerId, preferenceIndex + 1);
+      const receiverId = preferenceList[preferenceIndex];
+
+      if (!receiverId) {
+        continue;
+      }
+
+      const currentProposer = engagedByReceiver.get(receiverId);
+
+      if (!currentProposer) {
+        engagedByReceiver.set(receiverId, proposerId);
+        accepted = true;
+        break;
+      }
+
+      const rankMap = receiverRank.get(receiverId);
+      const incomingRank = rankMap?.get(proposerId) ?? Number.POSITIVE_INFINITY;
+      const currentRank =
+        rankMap?.get(currentProposer) ?? Number.POSITIVE_INFINITY;
+
+      if (incomingRank < currentRank) {
+        engagedByReceiver.set(receiverId, proposerId);
+        freeProposers.push(currentProposer);
+        accepted = true;
+        break;
+      }
+    }
+
+    if (!accepted) {
+      nextProposalIndex.set(proposerId, preferenceList.length);
+    }
+  }
+
+  engagedByReceiver.forEach((proposerId, receiverId) => {
+    const key = buildPairKey(proposerId, receiverId);
+    const candidate = candidateByPair.get(key);
+
+    if (!candidate) {
+      return;
+    }
+
+    selected.push(candidate);
+    usedParticipationIds.add(candidate.left.participationId);
+    usedParticipationIds.add(candidate.right.participationId);
+  });
+
+  selected.sort((left, right) => {
+    if (right.score !== left.score) {
+      return right.score - left.score;
+    }
+
+    if (right.comparableCount !== left.comparableCount) {
+      return right.comparableCount - left.comparableCount;
+    }
+
+    const leftKey = `${left.left.participationId}-${left.right.participationId}`;
+    const rightKey = `${right.left.participationId}-${right.right.participationId}`;
+
+    return leftKey.localeCompare(rightKey);
+  });
 
   return {
     selected,
