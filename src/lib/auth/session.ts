@@ -9,6 +9,8 @@ import {
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 const DELETED_ACCOUNT_SESSION_ERROR_MESSAGE = "账号已删除，请重新登录。";
+const ACCOUNT_PROVISION_FAILED_ERROR_MESSAGE =
+  "账号初始化失败，请重新登录或联系管理员。";
 
 function redirectDeletedAccount(): never {
   redirect(
@@ -28,7 +30,29 @@ const getSessionAppUserRecord = cache(async (userId: string) => {
     throw error;
   }
 
-  return { appUser: data, supabase };
+  if (data) {
+    return { appUser: data, supabase };
+  }
+
+  const { error: provisionError } = await supabase.rpc(
+    "provision_current_app_user",
+  );
+
+  if (provisionError) {
+    throw provisionError;
+  }
+
+  const { data: provisionedUser, error: refetchError } = await supabase
+    .from("app_users")
+    .select("role, account_status, deleted_at")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (refetchError) {
+    throw refetchError;
+  }
+
+  return { appUser: provisionedUser, supabase };
 });
 
 export const getSessionUser = cache(async () => {
@@ -63,6 +87,13 @@ export async function requireSessionUser() {
   }
 
   const { appUser, supabase } = await getSessionAppUserRecord(user.id);
+
+  if (!appUser) {
+    await supabase.auth.signOut();
+    redirect(
+      `/login?error=${encodeURIComponent(ACCOUNT_PROVISION_FAILED_ERROR_MESSAGE)}`,
+    );
+  }
 
   if (appUser?.account_status === "deleted" || appUser?.deleted_at) {
     await supabase.auth.signOut();

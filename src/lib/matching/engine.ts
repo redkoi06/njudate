@@ -27,13 +27,38 @@ export type MatchingParticipant = {
 };
 
 type CandidateReason = {
+  category: "profile" | "question";
   reason: string;
   score: number;
   signal?: string;
+  weightedContribution: number;
+};
+
+type PairExplain = {
+  scoreBreakdown: {
+    profileWeight: number;
+    profileWeightedScore: number;
+    questionWeight: number;
+    questionWeightedScore: number;
+    totalWeight: number;
+    weightedScore: number;
+  };
+  tieBreak: {
+    deterministicKey: string;
+    signalCount: number;
+    strengthScore: number;
+  };
+  topContributors: {
+    category: "profile" | "question";
+    reason: string;
+    score: number;
+    weightedContribution: number;
+  }[];
 };
 
 export type PairCandidate = {
   comparableCount: number;
+  explain?: PairExplain;
   left: MatchingParticipant;
   previewText: string;
   reasons: string[];
@@ -415,9 +440,11 @@ function evaluateProfileRule(
 
       if (score > 0) {
         reasons.push({
+          category: "profile",
           reason: `你们在${rule.field}上保持一致。`,
           score,
           signal: String(leftValue),
+          weightedContribution: score * rule.weight,
         });
       }
 
@@ -443,8 +470,10 @@ function evaluateProfileRule(
 
     if (score > 0) {
       reasons.push({
+        category: "profile",
         reason: "你们的年龄差处于当前策略允许的范围内。",
         score,
+        weightedContribution: score * rule.weight,
       });
     }
   });
@@ -478,6 +507,8 @@ export function buildPairCandidate(input: {
   let totalWeight = 0;
   let weightedScore = 0;
   let comparableCount = 0;
+  let questionWeight = 0;
+  let questionWeightedScore = 0;
   const reasons: CandidateReason[] = [];
 
   const profileResult = evaluateProfileRule(matchingPolicy, left, right, reasons);
@@ -494,6 +525,8 @@ export function buildPairCandidate(input: {
     comparableCount += 1;
     totalWeight += question.weight;
     weightedScore += comparison.score * question.weight;
+    questionWeight += question.weight;
+    questionWeightedScore += comparison.score * question.weight;
 
     if (comparison.reason) {
       const signal =
@@ -502,9 +535,11 @@ export function buildPairCandidate(input: {
           : undefined;
 
       reasons.push({
+        category: "question",
         reason: comparison.reason,
         score: comparison.score,
         ...(signal ? { signal } : {}),
+        weightedContribution: comparison.score * question.weight,
       });
     }
   });
@@ -523,7 +558,19 @@ export function buildPairCandidate(input: {
   }
 
   const rankedReasons = reasons
-    .sort((leftReason, rightReason) => rightReason.score - leftReason.score)
+    .sort((leftReason, rightReason) => {
+      if (rightReason.score !== leftReason.score) {
+        return rightReason.score - leftReason.score;
+      }
+
+      if (
+        rightReason.weightedContribution !== leftReason.weightedContribution
+      ) {
+        return rightReason.weightedContribution - leftReason.weightedContribution;
+      }
+
+      return leftReason.reason.localeCompare(rightReason.reason);
+    })
     .slice(0, 5);
 
   const reasonTexts = rankedReasons.map((item) => item.reason);
@@ -541,8 +588,40 @@ export function buildPairCandidate(input: {
     reasonTexts.push(fallback);
   }
 
+  const strengthScore =
+    totalWeight > 0
+      ? Math.round((weightedScore / totalWeight) * 1000) / 1000
+      : 0;
+  const deterministicKey = [
+    left.participationId,
+    right.participationId,
+  ]
+    .sort()
+    .join(":");
+
   return {
     comparableCount,
+    explain: {
+      scoreBreakdown: {
+        profileWeight: profileResult.totalWeight,
+        profileWeightedScore: profileResult.weightedScore,
+        questionWeight,
+        questionWeightedScore,
+        totalWeight,
+        weightedScore,
+      },
+      tieBreak: {
+        deterministicKey,
+        signalCount: sharedSignals.length,
+        strengthScore,
+      },
+      topContributors: rankedReasons.map((item) => ({
+        category: item.category,
+        reason: item.reason,
+        score: item.score,
+        weightedContribution: item.weightedContribution,
+      })),
+    },
     left,
     previewText:
       reasonTexts[0] ??
@@ -552,6 +631,14 @@ export function buildPairCandidate(input: {
     score,
     sharedSignals: sharedSignals.slice(0, 5),
   } satisfies PairCandidate;
+}
+
+function getExplainStrengthScore(candidate: PairCandidate) {
+  return candidate.explain?.tieBreak.strengthScore ?? candidate.score / 100;
+}
+
+function getExplainSignalCount(candidate: PairCandidate) {
+  return candidate.explain?.tieBreak.signalCount ?? candidate.sharedSignals.length;
 }
 
 export function buildPairCandidates(input: {
@@ -610,6 +697,20 @@ function compareCandidateForParticipant(
 
   if (right.comparableCount !== left.comparableCount) {
     return right.comparableCount - left.comparableCount;
+  }
+
+  const rightStrength = getExplainStrengthScore(right);
+  const leftStrength = getExplainStrengthScore(left);
+
+  if (rightStrength !== leftStrength) {
+    return rightStrength - leftStrength;
+  }
+
+  const rightSignalCount = getExplainSignalCount(right);
+  const leftSignalCount = getExplainSignalCount(left);
+
+  if (rightSignalCount !== leftSignalCount) {
+    return rightSignalCount - leftSignalCount;
   }
 
   return getCounterpartParticipationId(left, participationId).localeCompare(

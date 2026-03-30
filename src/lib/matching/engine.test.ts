@@ -296,6 +296,46 @@ describe("matching engine", () => {
     expect(candidate?.score).toBeGreaterThanOrEqual(60);
     expect(candidate?.previewText).toBeTruthy();
     expect(candidate?.reasons.length).toBeGreaterThanOrEqual(3);
+    expect(candidate?.explain?.scoreBreakdown.totalWeight).toBeGreaterThan(0);
+    expect(candidate?.explain?.topContributors.length).toBeGreaterThan(0);
+  });
+
+  it("includes structured explain data for weighted scoring and tie-break", () => {
+    const left = createParticipant({
+      answers: {
+        "q-multiple": ["read", "walk"],
+        "q-scale": 4,
+        "q-single": "slow",
+      },
+      birthYear: 2001,
+      gender: "female",
+      id: "left-explain",
+    });
+    const right = createParticipant({
+      answers: {
+        "q-multiple": ["read", "walk"],
+        "q-scale": 4,
+        "q-single": "slow",
+      },
+      birthYear: 2002,
+      gender: "male",
+      id: "right-explain",
+    });
+
+    const candidate = buildPairCandidate({
+      left,
+      matchingPolicy: defaultMatchingPolicy,
+      questions: standardQuestions,
+      right,
+    });
+
+    expect(candidate).not.toBeNull();
+    expect(candidate?.explain?.scoreBreakdown.profileWeight).toBe(1.1);
+    expect(candidate?.explain?.scoreBreakdown.questionWeight).toBe(3.7);
+    expect(candidate?.explain?.tieBreak.deterministicKey).toBe(
+      "left-explain:right-explain",
+    );
+    expect(candidate?.explain?.tieBreak.strengthScore).toBeGreaterThan(0);
   });
 
   it("applies the special age-preference score when preferences align with actual ages", () => {
@@ -628,6 +668,103 @@ describe("matching engine", () => {
 
     expect(pairs).toEqual(["female-a:male-a", "female-b:male-b"]);
     expect(result.usedParticipationIds.size).toBe(4);
+  });
+
+  it("uses explain strength as deterministic tie-break when score ties", () => {
+    const femaleA = createParticipant({
+      answers: {
+        "q-single": "slow",
+      },
+      birthYear: 2001,
+      gender: "female",
+      id: "female-a",
+    });
+    const maleA = createParticipant({
+      answers: {
+        "q-single": "slow",
+      },
+      birthYear: 2001,
+      gender: "male",
+      id: "male-a",
+    });
+    const maleB = createParticipant({
+      answers: {
+        "q-single": "slow",
+      },
+      birthYear: 2002,
+      gender: "male",
+      id: "male-b",
+    });
+
+    const result = selectStablePairs([
+      {
+        comparableCount: 2,
+        explain: {
+          scoreBreakdown: {
+            profileWeight: 1,
+            profileWeightedScore: 0.8,
+            questionWeight: 1,
+            questionWeightedScore: 1,
+            totalWeight: 2,
+            weightedScore: 1.8,
+          },
+          tieBreak: {
+            deterministicKey: "female-a:male-a",
+            signalCount: 1,
+            strengthScore: 0.9,
+          },
+          topContributors: [
+            {
+              category: "question",
+              reason: "q",
+              score: 1,
+              weightedContribution: 1,
+            },
+          ],
+        },
+        left: femaleA,
+        previewText: "fa-ma",
+        reasons: ["r"],
+        right: maleA,
+        score: 90,
+        sharedSignals: ["signal-a"],
+      },
+      {
+        comparableCount: 2,
+        explain: {
+          scoreBreakdown: {
+            profileWeight: 1,
+            profileWeightedScore: 0.7,
+            questionWeight: 1,
+            questionWeightedScore: 1,
+            totalWeight: 2,
+            weightedScore: 1.7,
+          },
+          tieBreak: {
+            deterministicKey: "female-a:male-b",
+            signalCount: 2,
+            strengthScore: 0.95,
+          },
+          topContributors: [
+            {
+              category: "question",
+              reason: "q",
+              score: 1,
+              weightedContribution: 1,
+            },
+          ],
+        },
+        left: femaleA,
+        previewText: "fa-mb",
+        reasons: ["r"],
+        right: maleB,
+        score: 90,
+        sharedSignals: ["signal-b", "signal-c"],
+      },
+    ]);
+
+    expect(result.selected).toHaveLength(1);
+    expect(result.selected[0]?.right.participationId).toBe("male-b");
   });
 
 });
