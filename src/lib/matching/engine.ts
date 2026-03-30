@@ -664,7 +664,7 @@ export function selectStablePairs(candidates: PairCandidate[]) {
     groups.set(participant.gender, [participant.participationId]);
   });
 
-  if (groups.size < 2) {
+  if (groups.size !== 2) {
     return {
       selected,
       usedParticipationIds,
