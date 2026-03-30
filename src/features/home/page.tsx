@@ -268,8 +268,8 @@ export default async function HomePage() {
                 label="问卷完成率"
               />
               <StatCard
-                value={formatCount(homeData.matchedUsers)}
-                label="成功配对人数"
+                value={formatCount(homeData.matchedPersonTimes)}
+                label="成功配对人次"
               />
             </div>
           </div>

@@ -98,6 +98,7 @@ Deno.serve(async (request) => {
       status: 200,
     });
   } catch (error) {
+    console.error("auto-batch-lifecycle failed", error);
     return new Response(
       JSON.stringify({
         error: error instanceof Error ? error.message : "Unknown error",

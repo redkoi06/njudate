@@ -9,7 +9,7 @@ export type HomePageMetrics = {
   newUsersLast30Days: number;
   questionnaireCompletionRate: number;
   questionnaireCompletedUsers: number;
-  matchedUsers: number;
+  matchedPersonTimes: number;
 };
 
 export type HomePageData = HomePageMetrics & {
@@ -64,10 +64,6 @@ function formatChineseDateTime(value: string | null | undefined) {
   return `${year}年${month}月${day}日 ${weekday} ${hour}:${minute}`;
 }
 
-function getDistinctUserCount(rows: Array<{ user_id: string }>) {
-  return new Set(rows.map((row) => row.user_id)).size;
-}
-
 export async function getHomePageData(signedIn: boolean) {
   const supabase = createAdminSupabaseClient();
   const last30Days = new Date(
@@ -80,7 +76,7 @@ export async function getHomePageData(signedIn: boolean) {
     matchScheduleConfigResult,
     registeredUsersResult,
     newUsersResult,
-    matchedUsersResult,
+    matchedPersonTimesResult,
   ] = await Promise.all([
     supabase
       .from("match_batches")
@@ -114,7 +110,7 @@ export async function getHomePageData(signedIn: boolean) {
       .gte("created_at", last30Days),
     supabase
       .from("match_results")
-      .select("user_id")
+      .select("id")
       .eq("status", "matched")
       .not("released_at", "is", null),
   ]);
@@ -139,8 +135,8 @@ export async function getHomePageData(signedIn: boolean) {
     throw newUsersResult.error;
   }
 
-  if (matchedUsersResult.error) {
-    throw matchedUsersResult.error;
+  if (matchedPersonTimesResult.error) {
+    throw matchedPersonTimesResult.error;
   }
 
   const currentBatch = currentBatchResult.data;
@@ -163,7 +159,7 @@ export async function getHomePageData(signedIn: boolean) {
   }
 
   const registeredUsers = registeredUsersResult.count ?? 0;
-  const matchedUsers = getDistinctUserCount(matchedUsersResult.data ?? []);
+  const matchedPersonTimes = matchedPersonTimesResult.data?.length ?? 0;
   const questionnaireCompletionRate =
     registeredUsers > 0
       ? Math.round((questionnaireCompletedUsers / registeredUsers) * 100)
@@ -188,6 +184,6 @@ export async function getHomePageData(signedIn: boolean) {
     newUsersLast30Days: newUsersResult.count ?? 0,
     questionnaireCompletionRate,
     questionnaireCompletedUsers,
-    matchedUsers,
+    matchedPersonTimes,
   } satisfies HomePageData;
 }

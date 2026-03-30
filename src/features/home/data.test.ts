@@ -33,7 +33,7 @@ function createAdminClient(input: {
         status: "open" | "locked" | "processing" | "failed";
       }
     | null;
-  matchedUserIds?: string[];
+  matchedResults?: Array<{ id: string; user_id: string }>;
   matchScheduleText?: string | null;
   newUsersCount?: number;
   participantsCount?: number;
@@ -130,7 +130,7 @@ function createAdminClient(input: {
           select: vi.fn(() => ({
             eq: vi.fn(() => ({
               not: vi.fn(async () => ({
-                data: (input.matchedUserIds ?? []).map((userId) => ({ user_id: userId })),
+                data: input.matchedResults ?? [],
                 error: null,
               })),
             })),
@@ -220,7 +220,7 @@ describe("getHomePageData", () => {
     const harness = createAdminClient({
       currentBatch: null,
       publishedVersionId: "version-published",
-      matchedUserIds: ["user-1"],
+      matchedResults: [{ id: "result-1", user_id: "user-1" }],
       registeredUsersCount: 4,
     });
     createAdminSupabaseClientMock.mockReturnValue(harness.client);
@@ -236,5 +236,23 @@ describe("getHomePageData", () => {
     expect(homeData.countdownTargetAt).toBeNull();
     expect(homeData.questionnaireCompletedUsers).toBe(2);
     expect(homeData.questionnaireCompletionRate).toBe(50);
+    expect(homeData.matchedPersonTimes).toBe(1);
+  });
+
+  it("counts matched records as person-times instead of distinct users", async () => {
+    countActiveSubmittedQuestionnaireUsersMock.mockResolvedValue(0);
+    const harness = createAdminClient({
+      currentBatch: null,
+      publishedVersionId: "version-published",
+      matchedResults: [
+        { id: "result-1", user_id: "user-1" },
+        { id: "result-2", user_id: "user-1" },
+      ],
+    });
+    createAdminSupabaseClientMock.mockReturnValue(harness.client);
+
+    const homeData = await getHomePageData(false);
+
+    expect(homeData.matchedPersonTimes).toBe(2);
   });
 });
