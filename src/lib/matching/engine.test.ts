@@ -199,7 +199,7 @@ describe("matching engine", () => {
     ).toBeNull();
   });
 
-  it("rejects cross-campus pairs when both answer same-city-only", () => {
+  it("rejects different-campus pairs before scoring", () => {
     const left = createParticipant({
       answers: {
         "q-long-distance-acceptance": "same-city-only",
@@ -229,7 +229,7 @@ describe("matching engine", () => {
       buildPairCandidate({
         left,
         matchingPolicy: defaultMatchingPolicy,
-        questions: [...standardQuestions, longDistanceQuestion],
+        questions: standardQuestions,
         right,
       }),
     ).toBeNull();
@@ -430,38 +430,7 @@ describe("matching engine", () => {
   });
 
 
-  it("keeps cross-campus pairs when at least one side accepts long distance", () => {
-    const left = createParticipant({
-      answers: {
-        "q-long-distance-acceptance": "same-city-only",
-      },
-      birthYear: 2002,
-      campus: "xianlin",
-      gender: "female",
-      id: "left",
-    });
-    const right = createParticipant({
-      answers: {
-        "q-long-distance-acceptance": "long-term-ok",
-      },
-      birthYear: 2001,
-      campus: "gulou",
-      gender: "male",
-      id: "right",
-    });
-
-    const candidate = buildPairCandidate({
-      left,
-      matchingPolicy: ageOnlyPolicy,
-      questions: [longDistanceQuestion],
-      right,
-    });
-
-    expect(candidate).not.toBeNull();
-    expect(candidate?.score).toBe(0);
-  });
-
-  it("applies long-distance preference score when campuses are the same", () => {
+  it("treats long-distance acceptance as a regular single question", () => {
     const left = createParticipant({
       answers: {
         "q-long-distance-acceptance": "same-city-only",
@@ -492,7 +461,7 @@ describe("matching engine", () => {
     expect(candidate?.score).toBe(100);
   });
 
-  it("allows campus same_bonus to contribute when campus is no longer a hard filter", () => {
+  it("does not let campus same_bonus raise the score after campus becomes a hard filter", () => {
     const scaleOnlyQuestion: MatchingQuestion = {
       kind: "scale",
       options: [],
@@ -527,7 +496,7 @@ describe("matching engine", () => {
     });
 
     expect(candidate).not.toBeNull();
-    expect(candidate?.score).toBe(98);
+    expect(candidate?.score).toBe(75);
   });
 
   it("keeps only the highest-ranked non-overlapping pairs when only one edge is eligible", () => {

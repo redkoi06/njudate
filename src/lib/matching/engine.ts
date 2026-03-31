@@ -74,14 +74,8 @@ type QuestionComparison = {
 };
 
 const AGE_PREFERENCE_QUESTION_CODE = "q-age-preference";
-const LONG_DISTANCE_ACCEPTANCE_QUESTION_CODE = "q-long-distance-acceptance";
 
 type AgePreferenceAnswer = "older" | "same-age" | "younger" | "soul-match";
-type LongDistanceAcceptanceAnswer =
-  | "same-city-only"
-  | "short-term-ok"
-  | "long-term-ok"
-  | "depends-on-feelings";
 
 function getOptionMap(question: MatchingQuestion) {
   return new Map(question.options.map((option) => [option.id, option.label]));
@@ -227,47 +221,6 @@ function getAgePreferenceSatisfaction(input: {
   }
 }
 
-function isLongDistanceAcceptanceAnswer(
-  value: string,
-): value is LongDistanceAcceptanceAnswer {
-  return (
-    value === "same-city-only" ||
-    value === "short-term-ok" ||
-    value === "long-term-ok" ||
-    value === "depends-on-feelings"
-  );
-}
-
-function getLongDistanceAcceptanceLevel(answer: LongDistanceAcceptanceAnswer) {
-  switch (answer) {
-    case "same-city-only":
-      return 0;
-    case "short-term-ok":
-      return 1;
-    case "long-term-ok":
-      return 2;
-    case "depends-on-feelings":
-      return 1.5;
-  }
-}
-
-function isCrossCampusBlockedByLongDistance(
-  left: MatchingParticipant,
-  right: MatchingParticipant,
-) {
-  const leftCampus = left.profileSnapshot.campus;
-  const rightCampus = right.profileSnapshot.campus;
-
-  if (!leftCampus || !rightCampus || leftCampus === rightCampus) {
-    return false;
-  }
-
-  const leftAnswer = left.answers[LONG_DISTANCE_ACCEPTANCE_QUESTION_CODE];
-  const rightAnswer = right.answers[LONG_DISTANCE_ACCEPTANCE_QUESTION_CODE];
-
-  return leftAnswer === "same-city-only" && rightAnswer === "same-city-only";
-}
-
 function compareSpecialQuestion(input: {
   left: MatchingParticipant;
   leftAnswer: string | string[] | number | undefined;
@@ -275,70 +228,44 @@ function compareSpecialQuestion(input: {
   right: MatchingParticipant;
   rightAnswer: string | string[] | number | undefined;
 }) {
-  if (input.question.questionCode === AGE_PREFERENCE_QUESTION_CODE) {
-    if (
-      typeof input.leftAnswer !== "string" ||
-      typeof input.rightAnswer !== "string" ||
-      !isAgePreferenceAnswer(input.leftAnswer) ||
-      !isAgePreferenceAnswer(input.rightAnswer)
-    ) {
-      return null;
-    }
-
-    const leftBirthYear = input.left.profileSnapshot.birth_year;
-    const rightBirthYear = input.right.profileSnapshot.birth_year;
-
-    if (
-      typeof leftBirthYear !== "number" ||
-      typeof rightBirthYear !== "number" ||
-      !Number.isInteger(leftBirthYear) ||
-      !Number.isInteger(rightBirthYear)
-    ) {
-      return null;
-    }
-
-    const leftSatisfaction = getAgePreferenceSatisfaction({
-      counterpartBirthYear: rightBirthYear,
-      preference: input.leftAnswer,
-      selfBirthYear: leftBirthYear,
-    });
-    const rightSatisfaction = getAgePreferenceSatisfaction({
-      counterpartBirthYear: leftBirthYear,
-      preference: input.rightAnswer,
-      selfBirthYear: rightBirthYear,
-    });
-
-    return {
-      score: leftSatisfaction * rightSatisfaction,
-    } satisfies QuestionComparison;
-  }
-
-  if (input.question.questionCode !== LONG_DISTANCE_ACCEPTANCE_QUESTION_CODE) {
+  if (input.question.questionCode !== AGE_PREFERENCE_QUESTION_CODE) {
     return null;
   }
 
   if (
     typeof input.leftAnswer !== "string" ||
     typeof input.rightAnswer !== "string" ||
-    !isLongDistanceAcceptanceAnswer(input.leftAnswer) ||
-    !isLongDistanceAcceptanceAnswer(input.rightAnswer)
+    !isAgePreferenceAnswer(input.leftAnswer) ||
+    !isAgePreferenceAnswer(input.rightAnswer)
   ) {
     return null;
   }
 
-  const leftCampus = input.left.profileSnapshot.campus;
-  const rightCampus = input.right.profileSnapshot.campus;
-  const isCrossCampus =
-    Boolean(leftCampus && rightCampus) && leftCampus !== rightCampus;
-  const leftLevel = getLongDistanceAcceptanceLevel(input.leftAnswer);
-  const rightLevel = getLongDistanceAcceptanceLevel(input.rightAnswer);
+  const leftBirthYear = input.left.profileSnapshot.birth_year;
+  const rightBirthYear = input.right.profileSnapshot.birth_year;
 
-  const hardGateScore =
-    isCrossCampus && leftLevel === 0 && rightLevel === 0 ? 0 : 1;
-  const preferenceScore = 1 - Math.abs(leftLevel - rightLevel) / 2;
+  if (
+    typeof leftBirthYear !== "number" ||
+    typeof rightBirthYear !== "number" ||
+    !Number.isInteger(leftBirthYear) ||
+    !Number.isInteger(rightBirthYear)
+  ) {
+    return null;
+  }
+
+  const leftSatisfaction = getAgePreferenceSatisfaction({
+    counterpartBirthYear: rightBirthYear,
+    preference: input.leftAnswer,
+    selfBirthYear: leftBirthYear,
+  });
+  const rightSatisfaction = getAgePreferenceSatisfaction({
+    counterpartBirthYear: leftBirthYear,
+    preference: input.rightAnswer,
+    selfBirthYear: rightBirthYear,
+  });
 
   return {
-    score: hardGateScore * preferenceScore,
+    score: leftSatisfaction * rightSatisfaction,
   } satisfies QuestionComparison;
 }
 
@@ -395,7 +322,10 @@ function passesHardProfileConstraints(
     return false;
   }
 
-  return true;
+  const leftCampus = left.profileSnapshot.campus;
+  const rightCampus = right.profileSnapshot.campus;
+
+  return Boolean(leftCampus && rightCampus && leftCampus === rightCampus);
 }
 
 function evaluateProfileFilters(
@@ -429,6 +359,10 @@ function evaluateProfileRule(
   let weightedScore = 0;
 
   policy.profileScoring.forEach((rule) => {
+    if (rule.field === "campus") {
+      return;
+    }
+
     totalWeight += rule.weight;
 
     if (rule.mode === "same_bonus") {
@@ -497,10 +431,6 @@ export function buildPairCandidate(input: {
   }
 
   if (!evaluateProfileFilters(matchingPolicy, left, right)) {
-    return null;
-  }
-
-  if (isCrossCampusBlockedByLongDistance(left, right)) {
     return null;
   }
 
