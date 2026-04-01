@@ -462,9 +462,29 @@ describe("account actions", () => {
     });
     const notificationInsertSingleMock = vi
       .fn()
-      .mockResolvedValue({ data: { id: VALID_NOTIFICATION_ID }, error: null });
+      .mockResolvedValueOnce({
+        data: { id: VALID_NOTIFICATION_ID },
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: { id: "77777777-7777-4777-8777-777777777777" },
+        error: null,
+      });
+    const existingNotificationLookup = createMaybeSingleBuilder({
+      id: VALID_NOTIFICATION_ID,
+    });
+    const notificationSelectEqSourceIdMock = vi
+      .fn()
+      .mockReturnValue(existingNotificationLookup.builder);
+    const notificationSelectEqSourceTypeMock = vi.fn().mockReturnValue({
+      eq: notificationSelectEqSourceIdMock,
+    });
+    const notificationSelectEqUserIdMock = vi.fn().mockReturnValue({
+      eq: notificationSelectEqSourceTypeMock,
+    });
     const notificationSelectMock = vi.fn().mockReturnValue({
       single: notificationInsertSingleMock,
+      eq: notificationSelectEqUserIdMock,
     });
     const notificationInsertMock = vi.fn().mockReturnValue({
       select: notificationSelectMock,
@@ -497,6 +517,19 @@ describe("account actions", () => {
         },
       },
       error: null,
+    });
+    adminRpcMock.mockImplementation(async (fn: string) => {
+      if (fn === "claim_match_contact_notification_email") {
+        return {
+          data: true,
+          error: null,
+        };
+      }
+
+      return {
+        data: null,
+        error: null,
+      };
     });
     createServerSupabaseClientMock.mockResolvedValue({
       auth: {
@@ -534,10 +567,12 @@ describe("account actions", () => {
       rpc: rpcMock,
     });
     createAdminSupabaseClientMock.mockReturnValue({
+      rpc: adminRpcMock,
       from: vi.fn((table: string) => {
         if (table === "notifications") {
           return {
             insert: notificationInsertMock,
+            select: notificationSelectMock,
             update: notificationUpdateMock,
           };
         }
@@ -579,6 +614,14 @@ describe("account actions", () => {
       }),
     );
     expect(notificationUpdateEqMock).toHaveBeenCalledTimes(2);
+    expect(adminRpcMock).toHaveBeenCalledTimes(2);
+    expect(adminRpcMock).toHaveBeenNthCalledWith(
+      1,
+      "claim_match_contact_notification_email",
+      expect.objectContaining({
+        p_notification_id: VALID_NOTIFICATION_ID,
+      }),
+    );
     expect(sendTransactionalEmailMock).toHaveBeenCalledTimes(2);
     expect(sendTransactionalEmailMock).toHaveBeenNthCalledWith(
       1,
@@ -592,6 +635,153 @@ describe("account actions", () => {
         subject: "第 6 轮联系方式已开放",
       }),
     );
+  });
+
+  it("does not resend contact notifications when the records already exist", async () => {
+    const matchResultId = VALID_MATCH_RESULT_ID;
+    const matchPairId = VALID_MATCH_PAIR_ID;
+    const matchResultLookup = createMaybeSingleBuilder({
+      batch_id: VALID_BATCH_ID,
+    });
+    const batchLookup = createSingleBuilder({
+      round_no: 6,
+      status: "published",
+    });
+    const notificationInsertSingleMock = vi
+      .fn()
+      .mockResolvedValue({
+        data: null,
+        error: {
+          code: "23505",
+          message: "duplicate key value violates unique constraint",
+        },
+      });
+    const existingNotificationLookup = createMaybeSingleBuilder({
+      id: VALID_NOTIFICATION_ID,
+    });
+    const notificationSelectEqSourceIdMock = vi
+      .fn()
+      .mockReturnValue(existingNotificationLookup.builder);
+    const notificationSelectEqSourceTypeMock = vi.fn().mockReturnValue({
+      eq: notificationSelectEqSourceIdMock,
+    });
+    const notificationSelectEqUserIdMock = vi.fn().mockReturnValue({
+      eq: notificationSelectEqSourceTypeMock,
+    });
+    const notificationSelectMock = vi.fn().mockReturnValue({
+      single: notificationInsertSingleMock,
+      eq: notificationSelectEqUserIdMock,
+    });
+    const notificationInsertMock = vi.fn().mockReturnValue({
+      select: notificationSelectMock,
+    });
+    const notificationUpdateEqMock = vi
+      .fn()
+      .mockResolvedValue({ error: null });
+    const notificationUpdateMock = vi.fn().mockReturnValue({
+      eq: notificationUpdateEqMock,
+    });
+
+    getUserMock.mockResolvedValue({
+      data: {
+        user: {
+          id: deleteActionUserId,
+        },
+      },
+    });
+    rpcMock.mockResolvedValue({
+      data: {
+        left_user: {
+          user_id: deleteActionUserId,
+          nickname: "当前用户",
+          email: "self@smail.nju.edu.cn",
+        },
+        right_user: {
+          user_id: "other-user-1",
+          nickname: "对方用户",
+          email: "other@smail.nju.edu.cn",
+        },
+      },
+      error: null,
+    });
+    adminRpcMock.mockImplementation(async (fn: string) => {
+      if (fn === "claim_match_contact_notification_email") {
+        return {
+          data: false,
+          error: null,
+        };
+      }
+
+      return {
+        data: null,
+        error: null,
+      };
+    });
+    createServerSupabaseClientMock.mockResolvedValue({
+      auth: {
+        getUser: getUserMock,
+        signInWithPassword: signInWithPasswordMock,
+        signOut: signOutMock,
+      },
+      from: vi.fn((table: string) => {
+        if (table === "app_users") {
+          return serverAppUsers.builder;
+        }
+
+        if (table === "match_results") {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnValue({
+                  not: vi.fn().mockReturnValue(matchResultLookup.builder),
+                }),
+              }),
+            }),
+          };
+        }
+
+        if (table === "match_batches") {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue(batchLookup.builder),
+            }),
+          };
+        }
+
+        throw new Error(`Unexpected server table: ${table}`);
+      }),
+      rpc: rpcMock,
+    });
+    createAdminSupabaseClientMock.mockReturnValue({
+      rpc: adminRpcMock,
+      from: vi.fn((table: string) => {
+        if (table === "notifications") {
+          return {
+            insert: notificationInsertMock,
+            select: notificationSelectMock,
+            update: notificationUpdateMock,
+          };
+        }
+
+        throw new Error(`Unexpected admin table: ${table}`);
+      }),
+    });
+
+    const formData = new FormData();
+    formData.set("matchPairId", matchPairId);
+    formData.set("matchResultId", matchResultId);
+
+    const redirectUrl = await captureRedirect(
+      triggerMatchContactAction(formData),
+    );
+    await flushMicrotasks();
+
+    expect(redirectUrl).toBe(`/app/matches/${matchResultId}`);
+    expect(notificationInsertMock).toHaveBeenCalledTimes(2);
+    expect(notificationSelectEqUserIdMock).toHaveBeenCalledTimes(2);
+    expect(adminRpcMock).toHaveBeenCalledTimes(2);
+    expect(notificationUpdateEqMock).not.toHaveBeenCalled();
+    expect(sendTransactionalEmailMock).not.toHaveBeenCalled();
   });
 
   it("marks a notification as read and revalidates the dashboard", async () => {

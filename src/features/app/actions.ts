@@ -25,7 +25,7 @@ import { getPublicEnv } from "@/lib/env/client";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { isUuid } from "@/lib/uuid";
-import type { Json } from "@/types/database.generated";
+import type { Database, Json } from "@/types/database.generated";
 
 function buildProfileSchema() {
   const { minBirthYear, maxBirthYear } = getBirthYearRange();
@@ -80,6 +80,7 @@ type AuthRegistrationStatus =
 
 const DELETED_ACCOUNT_LOGIN_ERROR_MESSAGE = "账号已删除，无法登录。";
 const DELETED_ACCOUNT_SESSION_ERROR_MESSAGE = "账号已删除，请重新登录。";
+const NOTIFICATION_EMAIL_CLAIM_TIMEOUT_MS = 10 * 60 * 1000;
 
 type AppAccountStatus = "active" | "restricted" | "deleted";
 
@@ -196,27 +197,78 @@ async function createNotification(input: {
   emailTo?: string | null;
 }) {
   const admin = createAdminSupabaseClient();
+  const payload: Database["public"]["Tables"]["notifications"]["Insert"] = {
+    user_id: input.userId,
+    category: input.sourceType,
+    title: input.title,
+    body: input.body,
+    level: input.level,
+    source_type: input.sourceType,
+    source_id: input.sourceId,
+    email_status: input.emailTo ? "pending" : "not_needed",
+  };
+  let notificationId: string;
+
   const { data, error } = await admin
     .from("notifications")
-    .insert({
-      user_id: input.userId,
-      category: input.sourceType,
-      title: input.title,
-      body: input.body,
-      level: input.level,
-      source_type: input.sourceType,
-      source_id: input.sourceId,
-      email_status: input.emailTo ? "pending" : "not_needed",
-    })
+    .insert(payload)
     .select("id")
     .single();
 
   if (error) {
-    throw error;
+    if (
+      error.code !== "23505" ||
+      input.sourceType !== "match_contact" ||
+      !input.sourceId
+    ) {
+      throw error;
+    }
+
+    const { data: existingNotification, error: existingNotificationError } =
+      await admin
+        .from("notifications")
+        .select("id")
+        .eq("user_id", input.userId)
+        .eq("source_type", input.sourceType)
+        .eq("source_id", input.sourceId)
+        .maybeSingle();
+
+    if (existingNotificationError) {
+      throw existingNotificationError;
+    }
+
+    if (!existingNotification) {
+      throw error;
+    }
+
+    notificationId = existingNotification.id;
+  } else {
+    notificationId = data.id;
   }
 
   if (!input.emailTo) {
     return;
+  }
+
+  if (input.sourceType === "match_contact") {
+    const reclaimBeforeIso = new Date(
+      Date.now() - NOTIFICATION_EMAIL_CLAIM_TIMEOUT_MS,
+    ).toISOString();
+    const { data: claimSucceeded, error: claimError } = await admin.rpc(
+      "claim_match_contact_notification_email" as never,
+      {
+        p_notification_id: notificationId,
+        p_reclaim_before: reclaimBeforeIso,
+      } as never,
+    );
+
+    if (claimError) {
+      throw claimError;
+    }
+
+    if (!claimSucceeded) {
+      return;
+    }
   }
 
   void sendTransactionalEmail({
@@ -228,17 +280,31 @@ async function createNotification(input: {
       const { error: updateError } = await admin
         .from("notifications")
         .update({
+          email_claimed_at: null,
           email_status: emailResult.ok ? "sent" : "failed",
           emailed_at: emailResult.ok ? new Date().toISOString() : null,
         })
-        .eq("id", data.id);
+        .eq("id", notificationId);
 
       if (updateError) {
         console.error("Failed to update notification email status", updateError);
       }
     })
-    .catch((error) => {
+    .catch(async (error) => {
       console.error("Background email send failed", error);
+
+      const { error: updateError } = await admin
+        .from("notifications")
+        .update({
+          email_claimed_at: null,
+          email_status: "failed",
+          emailed_at: null,
+        })
+        .eq("id", notificationId);
+
+      if (updateError) {
+        console.error("Failed to mark notification email as failed", updateError);
+      }
     });
 }
 
