@@ -1,18 +1,23 @@
 # NJU Date
 
-NJU Date 是一个面向校内用户的认真匹配平台，当前工程按正式运行结构组织。
+面向南京大学校内用户的认真匹配平台。当前仓库对应已完成开发的正式应用，包含完整用户端、管理后台、匹配批次调度与通知链路。
+
+## 已实现
+
+- 用户端：校邮注册登录、资料维护、深度问卷、按周报名、匹配记录、联系方式按规则开放
+- 管理端：问卷导入与发布、批次运营、公告维护、平台配置、用户管理
+- 系统链路：Supabase 持久化、自动批次生命周期、邮件通知、测试与类型校验
 
 ## 技术栈
 
-- Next.js 16 App Router
-- TypeScript strict mode
+- Next.js 16 + React 19 + TypeScript
 - Tailwind CSS 4
-- Supabase Auth / Postgres / SSR client / CLI
-- Zod
-- SMTP
+- Supabase Auth / Postgres / Edge Functions
+- React Hook Form + Zod
+- Nodemailer
 - Vitest
 
-## 本地开发
+## 本地运行
 
 1. 安装依赖
 
@@ -20,13 +25,9 @@ NJU Date 是一个面向校内用户的认真匹配平台，当前工程按正�
 npm install
 ```
 
-2. 准备环境变量
+2. 复制 `.env.example` 为 `.env.local` 并补齐配置
 
-```bash
-cp .env.example .env.local
-```
-
-3. 如果使用本地 Supabase，启动服务
+3. 如使用本地 Supabase，启动本地服务
 
 ```bash
 npm run supabase:start
@@ -38,23 +39,7 @@ npm run supabase:start
 npm run dev
 ```
 
-默认访问地址为 `http://localhost:3000`。
-
-## 环境变量
-
-- `NEXT_PUBLIC_SITE_URL`: 站点正式访问地址
-- `NEXT_PUBLIC_SUPABASE_URL`: Supabase 项目 URL
-- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`: Supabase 前端公钥
-- `SUPABASE_SERVICE_ROLE_KEY`: Supabase service role key
-- `INTERNAL_AUTOMATION_SECRET`: Supabase Edge Function 调用站内内部接口时使用的共享密钥
-- `CRON_SECRET`: Supabase 定时任务调用 `auto-batch-lifecycle` Edge Function 时使用的共享密钥
-- `SMTP_HOST`: 业务邮件 SMTP 主机
-- `SMTP_PORT`: 业务邮件 SMTP 端口
-- `SMTP_SECURE`: 业务邮件是否使用 SMTPS，`true` 或 `false`
-- `SMTP_USERNAME`: 业务邮件 SMTP 用户名
-- `SMTP_PASSWORD`: 业务邮件 SMTP 密码
-- `SMTP_FROM_EMAIL`: 业务邮件发件地址
-- `SMTP_FROM_NAME`: 业务邮件发件人名称，可选
+默认访问地址：`http://localhost:3000`
 
 ## 常用命令
 
@@ -64,58 +49,16 @@ npm run lint
 npm run typecheck
 npm run test
 npm run build
-npm run format
-npm run format:check
 npm run supabase:start
-npm run supabase:stop
 npm run supabase:reset
 npm run supabase:types
 ```
 
-## 运营运行方式
+## 环境变量
 
-- 批次生命周期按 `开始报名 -> 报名截止 -> 结果计算 -> 结果公布` 四个时间点自动推进。
-- 管理员仍可在后台补做已到时的动作，但不能早于计划时间抢跑。
-- 若批次执行失败，只能由管理员手动重跑；若已经晚于结果公布时间，重跑成功后会立即补发布。
-- 若批次卡在 `processing + processed_at = null`，必须先在后台手动重置为 `failed`，再重新执行匹配。
-- `auto-batch-lifecycle` Edge Function 使用 `CRON_SECRET` 请求头鉴权，并在 `supabase/config.toml` 中关闭 JWT 校验。
-- Supabase 定时调度创建或更新后，需要执行 `select public.upsert_auto_batch_lifecycle_schedule('<SUPABASE_PROJECT_URL>', '<CRON_SECRET>');` 重建任务。
+以 `.env.example` 为准，核心包括：
 
-## 部署检查
-
-部署前至少执行：
-
-```bash
-npm run lint
-npm run typecheck
-npm run test
-```
-
-如果本次改动包含新的 migration，还需要执行：
-
-```bash
-supabase db push
-npm run supabase:types
-```
-
-## 目录说明
-
-- `src/app`: App Router 页面与接口
-- `src/components`: 站点 UI 壳层和基础组件
-- `src/features/app`: 用户侧数据读取与 server actions
-- `src/lib/auth`: 会话读取
-- `src/lib/email`: 邮件发送封装
-- `src/lib/matching`: 批次生命周期与匹配执行器
-- `src/lib/supabase`: browser/server/admin/proxy 客户端
-- `src/types/database.generated.ts`: Supabase 类型定义
-- `supabase/migrations`: 数据库 schema 与 seed
-- `UI_demo`: 仅作视觉和交互参考，不参与正式运行
-
-## 已验证
-
-- `npm run lint`
-- `npm run typecheck`
-- `npm run test`
-- `npm run build`
-
-## 匹配算法
+- 站点地址
+- Supabase URL / Publishable Key / Service Role Key
+- 内部自动化密钥 `INTERNAL_AUTOMATION_SECRET`、`CRON_SECRET`
+- SMTP 发信配置
